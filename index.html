@@ -10,6 +10,37 @@
             font-family: 'Inter', sans-serif;
             background-color: #f3f4f6;
         }
+        /* Loading Overlay */
+        #loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(243, 244, 246, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            font-size: 1.25rem;
+            font-weight: 500;
+            color: #1f2937;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        /* Simple spinner */
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #d1d5db;
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
         .kanban-board {
             display: flex;
             gap: 1.5rem;
@@ -115,13 +146,18 @@
     </style>
 </head>
 <body>
+    <!-- Loading Overlay -->
+    <div id="loading-overlay">
+        <div class="spinner"></div>
+        <p>Loading your board...</p>
+    </div>
 
     <header class="bg-white shadow-md">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             <h1 class="text-3xl font-bold leading-tight text-gray-900">
                 MSc Thesis Sprint Tracker (v2)
             </h1>
-            <p class="mt-2 text-md text-gray-600">Drag and drop tasks to track your progress. Let's get this done, Moeletji.</p>
+            <p class="mt-2 text-md text-gray-600">Drag and drop tasks. Your progress is synced across all devices.</p>
         </div>
     </header>
 
@@ -151,7 +187,14 @@
         </div>
     </main>
 
-    <script>
+    <!-- Firebase SDK Imports -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, setLogLevel, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- App Code ---
+        
         const initialTasks = [
             // Phase 0: Setup
             { id: 't-01', title: 'Create "Master Thesis" Google Doc', desc: 'Create a single Google Doc and add the Master_Thesis_Draft_Nov15 content.', type: 'task-phase', tags: ['tag-setup'], column: 'todo' },
@@ -198,25 +241,89 @@
         ];
 
         let tasks = [];
+        let db, auth, userId, dbDocRef;
+        let isSaving = false; // A simple flag to prevent save-loops
+        
+        const loadingOverlay = document.getElementById('loading-overlay');
 
         /**
-         * Saves the current tasks array to localStorage.
+         * Initializes Firebase and sets up the real-time listener.
          */
-        function saveTasks() {
-            localStorage.setItem('kanbanTasksV2', JSON.stringify(tasks));
+        async function initFirebase() {
+            try {
+                // Get injected config
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                const firebaseConfig = JSON.parse(__firebase_config);
+
+                // Initialize Firebase
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                setLogLevel('Debug'); // Enable detailed logs
+
+                // Sign in
+                if (typeof __initial_auth_token !== 'undefined') {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                userId = auth.currentUser.uid;
+                console.log("User signed in with ID:", userId);
+
+                // Define the path to the data
+                // This is a private document for this user and this app
+                dbDocRef = doc(db, "artifacts", appId, "users", userId, "thesis-tracker", "main");
+
+                // Set up the real-time listener
+                setupRealtimeListener();
+                
+            } catch (error) {
+                console.error("Firebase Init Error:", error);
+                loadingOverlay.textContent = "Error loading board. Please refresh.";
+            }
         }
 
         /**
-         * Loads tasks from localStorage or initializes with default tasks.
+         * Listens for any changes to the board data in Firestore and re-renders.
          */
-        function loadTasks() {
-            const savedTasks = localStorage.getItem('kanbanTasksV2');
-            if (savedTasks) {
-                tasks = JSON.parse(savedTasks);
-            } else {
-                tasks = initialTasks;
+        function setupRealtimeListener() {
+            if (!dbDocRef) return;
+
+            onSnapshot(dbDocRef, (docSnap) => {
+                isSaving = true; // Prevent save-loop on initial load
+                if (docSnap.exists()) {
+                    console.log("Data loaded from Firestore.");
+                    tasks = docSnap.data().tasks;
+                } else {
+                    console.log("No data found. Initializing with default tasks.");
+                    tasks = initialTasks;
+                    saveTasks(); // Save the initial state to Firestore
+                }
+                renderTasks();
+                isSaving = false;
+            }, (error) => {
+                console.error("Firestore Snapshot Error:", error);
+                loadingOverlay.textContent = "Error connecting to board. Please refresh.";
+            });
+        }
+
+        /**
+         * Saves the current tasks array to Firestore.
+         */
+        async function saveTasks() {
+            // Prevent saving if we're already in the process or if db isn't ready
+            if (!dbDocRef || isSaving) return;
+            
+            isSaving = true;
+            console.log("Saving tasks to Firestore...");
+            try {
+                // We save the entire tasks array in one document
+                await setDoc(dbDocRef, { tasks: tasks });
+                console.log("Save successful.");
+            } catch (error) {
+                console.error("Error saving tasks:", error);
             }
-            renderTasks();
+            isSaving = false;
         }
 
         /**
@@ -258,6 +365,9 @@
             document.getElementById('count-todo').textContent = counts.todo;
             document.getElementById('count-inprogress').textContent = counts.inprogress;
             document.getElementById('count-done').textContent = counts.done;
+            
+            // Hide loading overlay
+            loadingOverlay.style.display = 'none';
 
             // Re-add drag-and-drop listeners to all tasks
             addDragListeners();
@@ -283,12 +393,11 @@
                     const taskToUpdate = tasks.find(t => t.id === taskId);
                     
                     if (taskToUpdate && taskToUpdate.column !== newColumnId) {
-                        // Update the column in the data array
+                        // Update the column in the local data array
                         taskToUpdate.column = newColumnId;
-                        // Save the updated tasks array to localStorage
+                        // Save the updated tasks array to Firestore
+                        // The onSnapshot listener will handle the re-render
                         saveTasks();
-                        // Re-render to update counts, which implicitly handles the drop
-                        renderTasks(); 
                     }
                 });
             });
@@ -301,6 +410,7 @@
                     const afterElement = getDragAfterElement(column.querySelector('.kanban-tasks'), e.clientY);
                     const taskList = column.querySelector('.kanban-tasks');
                     
+                    // This provides the immediate visual feedback
                     if (afterElement == null) {
                         taskList.appendChild(dragging);
                     } else {
@@ -322,9 +432,6 @@
 
         /**
          * Helper function to determine where to place the dragged item in the list.
-         * @param {HTMLElement} container - The task list container.
-         * @param {number} y - The clientY position of the mouse.
-         * @returns {HTMLElement|null} The element the dragged item should be inserted before.
          */
         function getDragAfterElement(container, y) {
             const draggableElements = [...container.querySelectorAll('.kanban-task:not(.dragging)')];
@@ -341,8 +448,8 @@
         }
 
         // Initial load
-        document.addEventListener('DOMContentLoaded', loadTasks);
-    </script>
+        document.addEventListener('DOMContentLoaded', initFirebase);
 
+    </script>
 </body>
 </html>
