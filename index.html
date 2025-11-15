@@ -278,6 +278,7 @@
         let db, auth, userId, dbDocRef;
         let isSaving = false; // Prevents save-loops
         let isInitialLoad = true; // Prevents "no data" flicker
+        const BOARD_ID = 'shared-board'; // Shared board document for all devices
         
         const loadingOverlay = document.getElementById('loading-overlay');
         const modalOverlay = document.getElementById('modal-overlay');
@@ -342,8 +343,8 @@
                 console.log("User signed in with ID:", userId);
 
                 // --- Database Reference ---
-                // This is a simpler path for a personal app
-                dbDocRef = doc(db, "users", userId, "thesis-tracker", "main");
+                // One shared doc so all anonymous clients sync to the same board
+                dbDocRef = doc(db, "boards", BOARD_ID);
 
                 // --- Real-Time Listener ---
                 setupRealtimeListener();
@@ -402,7 +403,7 @@
             console.log("Saving tasks to Firestore...");
             try {
                 // We save the entire tasks array in one document
-                await setDoc(dbDocRef, { tasks: tasks });
+                await setDoc(dbDocRef, { tasks: tasks, updatedBy: userId, updatedAt: Date.now() });
                 console.log("Save successful.");
             } catch (error) {
                 console.error("Error saving tasks:", error);
