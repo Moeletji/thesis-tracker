@@ -41,6 +41,6 @@ _(You will need to replace \[YOUR_USERNAME\] with your actual GitHub username af
 
 /
 │
-├── Thesis_Kanban_Tracker_v2.html (The entire web application)
+├── index.html (The entire web application)
 │
 └── README.md
