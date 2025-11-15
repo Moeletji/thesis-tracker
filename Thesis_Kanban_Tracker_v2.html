@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MSc Thesis Sprint Tracker (v2)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .kanban-board {
+            display: flex;
+            gap: 1.5rem;
+            padding: 1.5rem;
+            overflow-x: auto;
+            min-height: calc(100vh - 200px);
+        }
+        .kanban-column {
+            flex: 1 0 320px; /* Slightly wider */
+            background-color: #e5e7eb;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .kanban-column h2 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #d1d5db;
+            color: #1f2937;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .kanban-column h2 span {
+            font-size: 0.875rem;
+            background-color: #d1d5db;
+            color: #374151;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-weight: 600;
+        }
+        .kanban-tasks {
+            list-style: none;
+            padding: 0;
+            margin-top: 1rem;
+            min-height: 100px;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        .kanban-task {
+            background-color: #ffffff;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            cursor: grab;
+            transition: all 0.2s ease;
+            border-left: 5px solid #6366f1;
+        }
+        .kanban-task.task-phase {
+            border-left-color: #ef4444;
+            background-color: #fef2f2;
+        }
+        .kanban-task.task-sprint {
+            border-left-color: #f97316;
+            background-color: #fff7ed;
+        }
+        .kanban-task.task-micro {
+            border-left-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+        .kanban-task:active {
+            cursor: grabbing;
+            opacity: 0.8;
+            transform: scale(1.02);
+        }
+        .kanban-task p {
+            font-weight: 600;
+            color: #111827;
+            margin: 0 0 0.5rem 0;
+        }
+        .kanban-task .desc {
+            font-weight: 400;
+            font-size: 0.875rem;
+            color: #4b5563;
+            margin: 0;
+        }
+        .kanban-task .tag {
+            display: inline-block;
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            margin-top: 0.75rem;
+            margin-right: 0.5rem;
+        }
+        .tag-week1 { background-color: #dbeafe; color: #1e40af; }
+        .tag-week2 { background-color: #fee2e2; color: #991b1b; }
+        .tag-week3 { background-color: #dcfce7; color: #15803d; }
+        .tag-week4 { background-color: #fef9c3; color: #854d0e; }
+        .tag-setup { background-color: #e0e7ff; color: #3730a3; }
+        .tag-ai { background-color: #ede9fe; color: #5b21b6; }
+        .tag-write { background-color: #fce7f3; color: #9d174d; }
+        
+        .dragging {
+            opacity: 0.5;
+        }
+        .drag-over {
+            background-color: #d1d5db;
+            border: 2px dashed #9ca3af;
+        }
+    </style>
+</head>
+<body>
+
+    <header class="bg-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <h1 class="text-3xl font-bold leading-tight text-gray-900">
+                MSc Thesis Sprint Tracker (v2)
+            </h1>
+            <p class="mt-2 text-md text-gray-600">Drag and drop tasks to track your progress. Let's get this done, Moeletji.</p>
+        </div>
+    </header>
+
+    <main class="kanban-board">
+        <!-- To Do Column -->
+        <div class="kanban-column" id="col-todo" data-column-id="todo">
+            <h2>To Do <span id="count-todo">0</span></h2>
+            <ul class="kanban-tasks" id="tasks-todo">
+                <!-- Tasks will be injected by JS -->
+            </ul>
+        </div>
+
+        <!-- In Progress Column -->
+        <div class="kanban-column" id="col-inprogress" data-column-id="inprogress">
+            <h2>In Progress <span id="count-inprogress">0</span></h2>
+            <ul class="kanban-tasks" id="tasks-inprogress">
+                <!-- Tasks will be injected by JS -->
+            </ul>
+        </div>
+
+        <!-- Done Column -->
+        <div class="kanban-column" id="col-done" data-column-id="done">
+            <h2>Done <span id="count-done">0</span></h2>
+            <ul class="kanban-tasks" id="tasks-done">
+                <!-- Tasks will be injected by JS -->
+            </ul>
+        </div>
+    </main>
+
+    <script>
+        const initialTasks = [
+            // Phase 0: Setup
+            { id: 't-01', title: 'Create "Master Thesis" Google Doc', desc: 'Create a single Google Doc and add the Master_Thesis_Draft_Nov15 content.', type: 'task-phase', tags: ['tag-setup'], column: 'todo' },
+            { id: 't-02', title: 'Install/Subscribe to ATLAS.ti', desc: 'Get the subscription and install the software.', type: 'task-phase', tags: ['tag-setup'], column: 'todo' },
+            { id: 't-03', title: 'Block Time in Google Calendar', desc: 'Block 1-2 hours on weekdays and 8 hours on weekends.', type: 'task-phase', tags: ['tag-setup'], column: 'todo' },
+            { id: 't-04', title: 'Set up Zotero', desc: 'Install Zotero and the Google Docs plugin.', type: 'task-phase', tags: ['tag-setup'], column: 'todo' },
+
+            // Phase 1: Foundation & Data
+            { id: 't-10', title: 'PHASE 1: Foundation & Data', desc: 'Finalize Ch 1-3, collect all 40-50+ data sources.', type: 'task-phase', tags: ['tag-week1'], column: 'todo' },
+            { id: 't-11', title: '[Micro] Finalize Chapters 1-3', desc: 'Copy/paste from Master Draft. Read and confirm. Your foundation is DONE.', type: 'task-micro', tags: ['tag-week1'], column: 'todo' },
+            { id: 't-14', title: '[Micro] Send Ch 1-3 to Supervisor', desc: 'Send update to Dr. Dongmo for buy-in.', type: 'task-micro', tags: ['tag-week1'], column: 'todo' },
+            { id: 't-15', title: '[Sprint] Collect Corpus (Academic)', desc: 'Use UNISA Library & Perplexity "Cite" Hack. Get ~30 papers.', type: 'task-sprint', tags: ['tag-week1', 'tag-ai'], column: 'todo' },
+            { id: 't-16', title: '[Sprint] Collect Corpus (Grey Lit)', desc: 'Use Perplexity "site:" Hack. Get ~10-15 white papers.', type: 'task-sprint', tags: ['tag-week1', 'tag-ai'], column: 'todo' },
+            { id: 't-17', title: '[Sprint] Collect Corpus (Standards)', desc: 'Get primary texts for GDPR, PCI DSS, ISO 27001.', type: 'task-sprint', tags: ['tag-week1'], column: 'todo' },
+            { id: 't-18', title: '[Sprint] Process Corpus', desc: 'Add all PDFs to Zotero, then import all into ATLAS.ti project.', type: 'task-sprint', tags: ['tag-week1'], column: 'todo' },
+
+            // Phase 2: Analysis & Findings
+            { id: 't-20', title: 'PHASE 2: Analysis & Findings', desc: 'Execute your 3-phase analysis and write the new Chapter 4.', type: 'task-phase', tags: ['tag-week2'], column: 'todo' },
+            { id: 't-21', title: '[Micro] Pre-Coding Warmup', desc: 'Use Gemini to get a "sensitizing framework" of likely themes.', type: 'task-micro', tags: ['tag-week2', 'tag-ai'], column: 'todo' },
+            { id: 't-22', title: '[Micro] Phase 1 Coding (SQ1)', desc: 'In ATLAS.ti, code corpus for "current practices".', type: 'task-micro', tags: ['tag-week2'], column: 'todo' },
+            { id: 't-23', title: '[Micro] Phase 2 Coding & Theming (SQ2)', desc: 'In ATLAS.ti, code corpus for "challenges" and group into themes.', type: 'task-micro', tags: ['tag-week2'], column: 'todo' },
+            { id: 't-24', title: '[Micro] Phase 3 Synthesis (SQ3)', desc: 'Build your "Concept Matrix" in a Google Sheet.', type: 'task-micro', tags: ['tag-week2'], column: 'todo' },
+            { id: 't-25', title: '[Sprint] Write Sec 4.1 & 4.2', desc: 'Write Intro & "Status Quo" findings. Use AI Hack to synthesize quotes.', type: 'task-sprint', tags: ['tag-week2', 'tag-ai', 'tag-write'], column: 'todo' },
+            { id: 't-26', title: '[Sprint] Write Sec 4.3 (Challenges)', desc: 'Write up your 5-7 themes. Use AI Hack for each theme.', type: 'task-sprint', tags: ['tag-week2', 'tag-ai', 'tag-write'], column: 'todo' },
+            { id: 't-27', title: '[Sprint] Write Sec 4.4 & 4.5', desc: 'Write "Blueprint" from matrix & Chapter Summary.', type: 'task-sprint', tags: ['tag-week2', 'tag-ai', 'tag-write'], column: 'todo' },
+
+            // Phase 3: Synthesis & Submission
+            { id: 't-30', title: 'PHASE 3: Synthesis & Submission', desc: 'Build your artifact. Write Ch 5 & 6. Assemble V1.0 Draft.', type: 'task-phase', tags: ['tag-week3'], column: 'todo' },
+            { id: 't-31', title: '[Micro] Draw Framework (Sec 5.2.1)', desc: 'Use Gemini "Mermaid.js" Hack to create your diagram.', type: 'task-micro', tags: ['tag-week3', 'tag-ai'], column: 'todo' },
+            { id: 't-32', title: '[Micro] Describe Framework (Sec 5.2.2)', desc: 'Write the description of each element. This is original work.', type: 'task-micro', tags: ['tag-week3', 'tag-write'], column: 'todo' },
+            { id: 't-33', title: '[Micro] Write Validation (Sec 5.3)', desc: 'Use Gemini "Socratic Method" Hack with the Beerbaum case.', type: 'task-micro', tags: ['tag-week3', 'tag-ai', 'tag-write'], column: 'todo' },
+            { id: 't-34', title: '[Sprint] Write Discussion (Sec 5.4)', desc: 'Write the "So what?" section. Implications for CSIR-SANReN.', type: 'task-sprint', tags: ['tag-week3', 'tag-write'], column: 'todo' },
+            { id: 't-35', title: '[Sprint] Write Chapter 6', desc: 'Write the full conclusion. Use AI Hack for Sec 6.2.', type: 'task-sprint', tags: ['tag-week3', 'tag-ai', 'tag-write'], column: 'todo' },
+            { id: 't-36', title: '[Sprint] Write Abstract', desc: 'Use Gemini "Abstract" Hack on your full draft.', type: 'task-sprint', tags: ['tag-week3', 'tag-ai', 'tag-write'], column: 'todo' },
+            { id: 't-37', title: '[Sprint] Generate References', desc: 'Use Zotero plugin to auto-generate all references.', type: 'task-sprint', tags: ['tag-week3'], column: 'todo' },
+            { id: 't-38', title: '[Sprint] Full Draft V1.0 Assembly', desc: 'Combine all parts, add ToC, run spell-check.', type: 'task-sprint', tags: ['tag-week3'], column: 'todo' },
+            
+            // Phase 4: Review
+            { id: 't-40', title: 'PHASE 4: Review & Finalize', desc: 'Get supervisor compliance and prepare for submission.', type: 'task-phase', tags: ['tag-week4'], column: 'todo' },
+            { id: 't-41', title: 'SUBMIT V1.0 TO SUPERVISOR', desc: 'Email the "Intention to Complete" PDF to Dr. Dongmo.', type: 'task-sprint', tags: ['tag-week4'], column: 'todo' },
+            { id: 't-42', title: '[Micro] Proofread & Format', desc: 'Check all UNISA formatting. Run through Grammarly/ChatGPT.', type: 'task-micro', tags: ['tag-week4', 'tag-ai'], column: 'todo' },
+            { id: 't-43', title: '[Sprint] Integrate Final Feedback', desc: 'Incorporate your supervisor\'s last comments.', type: 'task-sprint', tags: ['tag-week4'], column: 'todo' },
+            { id: 't-44', title: 'GENERATE FINAL PDF', desc: 'Create the final, submittable file.', type: 'task-sprint', tags: ['tag-week4'], column: 'todo' },
+        ];
+
+        let tasks = [];
+
+        /**
+         * Saves the current tasks array to localStorage.
+         */
+        function saveTasks() {
+            localStorage.setItem('kanbanTasksV2', JSON.stringify(tasks));
+        }
+
+        /**
+         * Loads tasks from localStorage or initializes with default tasks.
+         */
+        function loadTasks() {
+            const savedTasks = localStorage.getItem('kanbanTasksV2');
+            if (savedTasks) {
+                tasks = JSON.parse(savedTasks);
+            } else {
+                tasks = initialTasks;
+            }
+            renderTasks();
+        }
+
+        /**
+         * Renders all tasks into their respective columns in the DOM.
+         */
+        function renderTasks() {
+            // Clear all columns
+            const taskLists = document.querySelectorAll('.kanban-tasks');
+            taskLists.forEach(list => list.innerHTML = '');
+
+            // Reset counts
+            const counts = { todo: 0, inprogress: 0, done: 0 };
+
+            // Render tasks
+            tasks.forEach(task => {
+                const column = document.getElementById(`tasks-${task.column}`);
+                if (column) {
+                    const taskElement = document.createElement('li');
+                    taskElement.id = task.id;
+                    taskElement.className = `kanban-task ${task.type}`;
+                    taskElement.draggable = true;
+                    
+                    let tagsHtml = '';
+                    task.tags.forEach(tag => {
+                        tagsHtml += `<span class="tag ${tag}">${tag.split('-')[1].toUpperCase()}</span>`;
+                    });
+
+                    taskElement.innerHTML = `
+                        <p>${task.title}</p>
+                        <p class="desc">${task.desc}</p>
+                        <div>${tagsHtml}</div>
+                    `;
+                    column.appendChild(taskElement);
+                    counts[task.column]++;
+                }
+            });
+
+            // Update counts
+            document.getElementById('count-todo').textContent = counts.todo;
+            document.getElementById('count-inprogress').textContent = counts.inprogress;
+            document.getElementById('count-done').textContent = counts.done;
+
+            // Re-add drag-and-drop listeners to all tasks
+            addDragListeners();
+        }
+
+        /**
+         * Adds drag-and-drop event listeners to tasks and columns.
+         */
+        function addDragListeners() {
+            const draggables = document.querySelectorAll('.kanban-task');
+            const columns = document.querySelectorAll('.kanban-column');
+
+            draggables.forEach(task => {
+                task.addEventListener('dragstart', () => {
+                    task.classList.add('dragging');
+                });
+
+                task.addEventListener('dragend', () => {
+                    task.classList.remove('dragging');
+                    // Find the task in the array
+                    const taskId = task.id;
+                    const newColumnId = task.parentElement.parentElement.dataset.columnId;
+                    const taskToUpdate = tasks.find(t => t.id === taskId);
+                    
+                    if (taskToUpdate && taskToUpdate.column !== newColumnId) {
+                        // Update the column in the data array
+                        taskToUpdate.column = newColumnId;
+                        // Save the updated tasks array to localStorage
+                        saveTasks();
+                        // Re-render to update counts, which implicitly handles the drop
+                        renderTasks(); 
+                    }
+                });
+            });
+
+            columns.forEach(column => {
+                column.addEventListener('dragover', e => {
+                    e.preventDefault(); // Necessary to allow dropping
+                    column.classList.add('drag-over');
+                    const dragging = document.querySelector('.dragging');
+                    const afterElement = getDragAfterElement(column.querySelector('.kanban-tasks'), e.clientY);
+                    const taskList = column.querySelector('.kanban-tasks');
+                    
+                    if (afterElement == null) {
+                        taskList.appendChild(dragging);
+                    } else {
+                        taskList.insertBefore(dragging, afterElement);
+                    }
+                });
+
+                column.addEventListener('dragleave', () => {
+                    column.classList.remove('drag-over');
+                });
+
+                column.addEventListener('drop', e => {
+                    e.preventDefault();
+                    column.classList.remove('drag-over');
+                    // The 'dragend' event on the task will handle the data update and save
+                });
+            });
+        }
+
+        /**
+         * Helper function to determine where to place the dragged item in the list.
+         * @param {HTMLElement} container - The task list container.
+         * @param {number} y - The clientY position of the mouse.
+         * @returns {HTMLElement|null} The element the dragged item should be inserted before.
+         */
+        function getDragAfterElement(container, y) {
+            const draggableElements = [...container.querySelectorAll('.kanban-task:not(.dragging)')];
+
+            return draggableElements.reduce((closest, child) => {
+                const box = child.getBoundingClientRect();
+                const offset = y - box.top - box.height / 2;
+                if (offset < 0 && offset > closest.offset) {
+                    return { offset: offset, element: child };
+                } else {
+                    return closest;
+                }
+            }, { offset: Number.NEGATIVE_INFINITY }).element;
+        }
+
+        // Initial load
+        document.addEventListener('DOMContentLoaded', loadTasks);
+    </script>
+
+</body>
+</html>
