@@ -278,7 +278,8 @@
         let db, auth, userId, dbDocRef;
         let isSaving = false; // Prevents save-loops
         let isInitialLoad = true; // Prevents "no data" flicker
-        const BOARD_ID = 'shared-board'; // Shared board document for all devices
+        const BOARD_ID = '%%FIREBASE_BOARD_ID%%';
+        const RESOLVED_BOARD_ID = BOARD_ID.startsWith('%%') ? 'shared-board' : BOARD_ID; // Shared board document for all devices
         
         const loadingOverlay = document.getElementById('loading-overlay');
         const modalOverlay = document.getElementById('modal-overlay');
@@ -344,7 +345,7 @@
 
                 // --- Database Reference ---
                 // One shared doc so all anonymous clients sync to the same board
-                dbDocRef = doc(db, "boards", BOARD_ID);
+                dbDocRef = doc(db, "boards", RESOLVED_BOARD_ID);
 
                 // --- Real-Time Listener ---
                 setupRealtimeListener();
