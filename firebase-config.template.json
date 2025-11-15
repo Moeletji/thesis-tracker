@@ -1,0 +1,11 @@
+{
+    "firebaseConfig": {
+        "apiKey": "AIzaSyDWXrWPwnVKPkYXrl9_92dXc1sEXExTOmY",
+        "authDomain": "thesis-tracker-8ccad.firebaseapp.com",
+        "projectId": "thesis-tracker-8ccad",
+        "storageBucket": "thesis-tracker-8ccad.firebasestorage.app",
+        "messagingSenderId": "146455636202",
+        "appId": "1:146455636202:web:56cf5814975cf0f4b2cf93",
+        "measurementId": "G-T2QJKB60B5"
+    }
+}

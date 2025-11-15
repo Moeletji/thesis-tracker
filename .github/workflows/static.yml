@@ -31,6 +31,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Generate Firebase config
+        shell: bash
+        run: |
+          if [ -z "${{ secrets.FIREBASE_CONFIG_JSON }}" ]; then
+            echo "The FIREBASE_CONFIG_JSON secret is not configured." >&2
+            exit 1
+          fi
+          printf '%s' "${{ secrets.FIREBASE_CONFIG_JSON }}" > firebase-config.json
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact

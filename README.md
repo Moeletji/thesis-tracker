@@ -21,6 +21,23 @@ It is built with HTML, Tailwind CSS for styling, and plain JavaScript for intera
 
 This is a single, static HTML file. No build process or servers are required.
 
+### Configure Firebase (for GitHub Pages + local dev)
+
+1. **Create your config JSON locally**
+   - Copy `firebase-config.template.json` to `firebase-config.json` (this file is `.gitignore`'d).
+   - Fill in `boardAppId`, `firebaseConfig` (apiKey, authDomain, etc.), and `initialAuthToken` only if you use a custom token flow.
+   - Keep this file private—do not commit it.
+2. **Store the config in GitHub Secrets**
+   - Open your repo → *Settings* → *Secrets and variables* → *Actions* → *New repository secret*.
+   - Name it `FIREBASE_CONFIG_JSON` and paste the **entire JSON** (minified or pretty-printed is fine).
+   - Prefer Firebase API keys with HTTP referrer restrictions and locked-down Firestore rules.
+3. **Deploy via GitHub Pages workflow**
+   - The workflow `.github/workflows/static.yml` now writes `firebase-config.json` during the build using the secret, so Pages gets the same config without exposing it in git history.
+   - If the secret is missing, the workflow fails fast to avoid publishing a broken build.
+4. **Rotate / update**
+   - Update your local `firebase-config.json` and the `FIREBASE_CONFIG_JSON` secret together whenever keys or IDs change.
+   - Remove any obsolete keys from Firebase console to prevent orphaned credentials.
+
 **1\. Local Use**
 
 - Download the Thesis_Kanban_Tracker_v2.html file.

@@ -3,129 +3,155 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MSc Thesis Sprint Tracker (v2)</title>
+    <title>MSc Thesis Sprint Tracker (v3)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
             background-color: #f3f4f6;
+            overflow: hidden; /* Prevent body scroll when modal is open */
         }
-        /* Loading Overlay */
+        
+        /* --- Loading Overlay --- */
         #loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(243, 244, 246, 0.9);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-            font-size: 1.25rem;
-            font-weight: 500;
-            color: #1f2937;
-            flex-direction: column;
-            gap: 1rem;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(243, 244, 246, 0.95);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 9999; flex-direction: column; gap: 1rem;
+            transition: opacity 0.3s ease;
         }
-        /* Simple spinner */
         .spinner {
-            width: 40px;
-            height: 40px;
-            border: 4px solid #d1d5db;
-            border-top-color: #3b82f6;
-            border-radius: 50%;
+            width: 40px; height: 40px; border: 4px solid #d1d5db;
+            border-top-color: #3b82f6; border-radius: 50%;
             animation: spin 1s linear infinite;
         }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
+        /* --- Task Modal --- */
+        #modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: none; /* Hidden by default */
+            justify-content: center; align-items: center;
+            z-index: 1000; padding: 1rem;
+        }
+        #modal-content {
+            background-color: #ffffff;
+            border-radius: 0.75rem;
+            padding: 2rem;
+            width: 100%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            position: relative;
+        }
+        #modal-close {
+            position: absolute; top: 1rem; right: 1rem;
+            background: #e5e7eb; color: #4b5563;
+            border: none; border-radius: 99px;
+            width: 2rem; height: 2rem;
+            font-weight: bold; cursor: pointer;
+            display: flex; justify-content: center; align-items: center;
+        }
+        #modal-title {
+            font-size: 1.5rem; font-weight: 700; color: #111827;
+            border-bottom: 2px solid #e5e7eb; padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        #modal-body {
+            font-size: 1rem; color: #374151;
+            line-height: 1.6;
+        }
+        /* Styles for descriptions */
+        #modal-body .guide-step {
+            margin-top: 1rem;
+            padding-left: 1rem;
+            border-left: 3px solid #3b82f6;
+            font-weight: 500;
+        }
+        #modal-body .guide-hack {
+            margin-top: 1rem;
+            padding: 0.75rem;
+            background-color: #eff6ff;
+            border: 1px solid #dbeafe;
+            border-radius: 0.375rem;
+        }
+        #modal-body .guide-hack strong { color: #1e40af; }
+        #modal-body ul { list-style-type: disc; margin-left: 1.5rem; margin-top: 0.5rem; }
+        #modal-body code {
+            background-color: #e5e7eb; padding: 0.125rem 0.375rem;
+            border-radius: 0.25rem; font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+        
+        /* --- Kanban Board --- */
         .kanban-board {
-            display: flex;
-            gap: 1.5rem;
-            padding: 1.5rem;
+            display: flex; gap: 1.5rem; padding: 1.5rem;
             overflow-x: auto;
-            min-height: calc(100vh - 200px);
+            height: calc(100vh - 90px); /* Full height minus header */
+            align-items: flex-start; /* Aligns columns at the top */
         }
         .kanban-column {
-            flex: 1 0 320px; /* Slightly wider */
+            flex: 1 0 320px;
             background-color: #e5e7eb;
             border-radius: 0.75rem;
             padding: 1rem;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            /* Set a max-height and make the *column* scrollable, not the board */
+            max-height: calc(100vh - 120px);
+            overflow-y: auto;
         }
         .kanban-column h2 {
-            font-size: 1.25rem;
-            font-weight: 700;
-            padding-bottom: 1rem;
-            border-bottom: 2px solid #d1d5db;
-            color: #1f2937;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            font-size: 1.25rem; font-weight: 700; padding-bottom: 1rem;
+            border-bottom: 2px solid #d1d5db; color: #1f2937;
+            display: flex; justify-content: space-between; align-items: center;
+            position: sticky; top: -1rem; /* Sticky header */
+            background-color: #e5e7eb; z-index: 10;
+            padding-top: 1rem; /* Add padding to compensate for sticky */
         }
         .kanban-column h2 span {
-            font-size: 0.875rem;
-            background-color: #d1d5db;
-            color: #374151;
-            padding: 0.25rem 0.75rem;
-            border-radius: 9999px;
-            font-weight: 600;
+            font-size: 0.875rem; background-color: #d1d5db; color: #374151;
+            padding: 0.25rem 0.75rem; border-radius: 9999px; font-weight: 600;
         }
         .kanban-tasks {
-            list-style: none;
-            padding: 0;
-            margin-top: 1rem;
-            min-height: 100px;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
+            list-style: none; padding: 0; margin-top: 1rem;
+            min-height: 100px; display: flex; flex-direction: column; gap: 1rem;
         }
         .kanban-task {
-            background-color: #ffffff;
-            padding: 1rem;
-            border-radius: 0.5rem;
+            background-color: #ffffff; padding: 1rem; border-radius: 0.5rem;
             box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-            cursor: grab;
-            transition: all 0.2s ease;
+            cursor: grab; transition: all 0.2s ease;
             border-left: 5px solid #6366f1;
         }
-        .kanban-task.task-phase {
-            border-left-color: #ef4444;
-            background-color: #fef2f2;
-        }
-        .kanban-task.task-sprint {
-            border-left-color: #f97316;
-            background-color: #fff7ed;
-        }
-        .kanban-task.task-micro {
-            border-left-color: #3b82f6;
-            background-color: #eff6ff;
-        }
-        .kanban-task:active {
-            cursor: grabbing;
-            opacity: 0.8;
-            transform: scale(1.02);
-        }
+        .kanban-task.task-phase { border-left-color: #ef4444; background-color: #fef2f2; }
+        .kanban-task.task-sprint { border-left-color: #f97316; background-color: #fff7ed; }
+        .kanban-task.task-micro { border-left-color: #3b82f6; background-color: #eff6ff; }
+        
+        .kanban-task:hover { transform: translateY(-2px); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .kanban-task:active { cursor: grabbing; opacity: 0.8; transform: scale(1.02); }
+        
         .kanban-task p {
-            font-weight: 600;
-            color: #111827;
+            font-weight: 600; color: #111827;
             margin: 0 0 0.5rem 0;
+            pointer-events: none; /* Make text non-interactive for click */
         }
-        .kanban-task .desc {
-            font-weight: 400;
-            font-size: 0.875rem;
-            color: #4b5563;
-            margin: 0;
+        .kanban-task .desc-preview {
+            font-weight: 400; font-size: 0.875rem; color: #4b5563;
+            margin: 0; pointer-events: none;
+            /* Truncate text */
+            overflow: hidden; text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2; /* Show 2 lines */
+            -webkit-box-orient: vertical;
+        }
+        .kanban-task .tags {
+            margin-top: 0.75rem;
+            pointer-events: none;
         }
         .kanban-task .tag {
-            display: inline-block;
-            font-size: 0.75rem;
-            font-weight: 500;
-            padding: 0.25rem 0.5rem;
-            border-radius: 0.25rem;
-            margin-top: 0.75rem;
+            display: inline-block; font-size: 0.75rem; font-weight: 500;
+            padding: 0.25rem 0.5rem; border-radius: 0.25rem;
             margin-right: 0.5rem;
         }
         .tag-week1 { background-color: #dbeafe; color: #1e40af; }
@@ -136,150 +162,190 @@
         .tag-ai { background-color: #ede9fe; color: #5b21b6; }
         .tag-write { background-color: #fce7f3; color: #9d174d; }
         
-        .dragging {
-            opacity: 0.5;
-        }
-        .drag-over {
-            background-color: #d1d5db;
-            border: 2px dashed #9ca3af;
-        }
+        .dragging { opacity: 0.5; }
+        .drag-over { background-color: #d1d5db; border: 2px dashed #9ca3af; }
     </style>
 </head>
 <body>
     <!-- Loading Overlay -->
     <div id="loading-overlay">
         <div class="spinner"></div>
-        <p>Loading your board...</p>
+        <p>Connecting to your board...</p>
+    </div>
+    
+    <!-- Task Detail Modal -->
+    <div id="modal-overlay">
+        <div id="modal-content">
+            <button id="modal-close">X</button>
+            <h2 id="modal-title">Task Title</h2>
+            <div id="modal-body">Task Description</div>
+        </div>
     </div>
 
-    <header class="bg-white shadow-md">
+    <header class="bg-white shadow-md sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             <h1 class="text-3xl font-bold leading-tight text-gray-900">
-                MSc Thesis Sprint Tracker (v2)
+                MSc Thesis Sprint Tracker (v3)
             </h1>
-            <p class="mt-2 text-md text-gray-600">Drag and drop tasks. Your progress is synced across all devices.</p>
+            <p class="mt-2 text-md text-gray-600">Click any task to see details. Drag to move. Synced across all devices.</p>
         </div>
     </header>
 
     <main class="kanban-board">
-        <!-- To Do Column -->
+        <!-- Columns are dynamically filled -->
         <div class="kanban-column" id="col-todo" data-column-id="todo">
             <h2>To Do <span id="count-todo">0</span></h2>
-            <ul class="kanban-tasks" id="tasks-todo">
-                <!-- Tasks will be injected by JS -->
-            </ul>
+            <ul class="kanban-tasks" id="tasks-todo"></ul>
         </div>
-
-        <!-- In Progress Column -->
         <div class="kanban-column" id="col-inprogress" data-column-id="inprogress">
             <h2>In Progress <span id="count-inprogress">0</span></h2>
-            <ul class="kanban-tasks" id="tasks-inprogress">
-                <!-- Tasks will be injected by JS -->
-            </ul>
+            <ul class="kanban-tasks" id="tasks-inprogress"></ul>
         </div>
-
-        <!-- Done Column -->
         <div class="kanban-column" id="col-done" data-column-id="done">
             <h2>Done <span id="count-done">0</span></h2>
-            <ul class="kanban-tasks" id="tasks-done">
-                <!-- Tasks will be injected by JS -->
-            </ul>
+            <ul class="kanban-tasks" id="tasks-done"></ul>
         </div>
     </main>
 
     <!-- Firebase SDK Imports -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, setLogLevel, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // --- Config ---
+        // These %%PLACEHOLDER%% values will be replaced by your GitHub Action
+        const firebaseConfig = {
+            apiKey: "%%FIREBASE_API_KEY%%",
+            authDomain: "%%FIREBASE_AUTH_DOMAIN%%",
+            projectId: "%%FIREBASE_PROJECT_ID%%",
+            storageBucket: "%%FIREBASE_STORAGE_BUCKET%%",
+            messagingSenderId: "%%FIREBASE_MESSAGING_SENDER_ID%%",
+            appId: "%%FIREBASE_APP_ID%%"
+        };
+        
         // --- App Code ---
         
+        // This is the "default" state if no board is found in the database.
         const initialTasks = [
             // Phase 0: Setup
-            { id: 't-01', title: 'Create "Master Thesis" Google Doc', desc: 'Create a single Google Doc and add the Master_Thesis_Draft_Nov15 content.', type: 'task-phase', tags: ['tag-setup'], column: 'todo' },
-            { id: 't-02', title: 'Install/Subscribe to ATLAS.ti', desc: 'Get the subscription and install the software.', type: 'task-phase', tags: ['tag-setup'], column: 'todo' },
-            { id: 't-03', title: 'Block Time in Google Calendar', desc: 'Block 1-2 hours on weekdays and 8 hours on weekends.', type: 'task-phase', tags: ['tag-setup'], column: 'todo' },
-            { id: 't-04', title: 'Set up Zotero', desc: 'Install Zotero and the Google Docs plugin.', type: 'task-phase', tags: ['tag-setup'], column: 'todo' },
+            { id: 't-01', title: 'Create "Master Thesis" Google Doc', desc: `Open Google Docs and create a new document named 'MSc Thesis Draft - Moeletji Semenya'. Paste the content from the <code>Master_Thesis_Draft_Nov15.md</code> file. This document is now your **Single Source of Truth**. All writing happens here.`, type: 'task-phase', tags: ['tag-setup'], column: 'todo' },
+            { id: 't-02', title: 'Install/Subscribe to ATLAS.ti', desc: `Get your ATLAS.ti subscription. This is **critical** for your 3-phase analysis. Download, install, and activate the software on your main work computer. You'll be using this heavily in Week 2.`, type: 'task-phase', tags: ['tag-setup'], column: 'todo' },
+            { id: 't-03', title: 'Block Time in Google Calendar', desc: `Open your Google Calendar *now* and block out your sprint time for the next 3 weeks. This is non-negotiable.<br><ul><li><b>Weekdays:</b> 1-2 hours (e.g., 7 PM - 9 PM) for Microtasks.</li><li><b>Weekends:</b> 6-8 hours (e.g., 9 AM - 4 PM) for Sprint tasks.</li></ul>`, type: 'task-phase', tags: ['tag-setup'], column: 'todo' },
+            { id: 't-04', title: 'Set up Zotero', desc: `Install the Zotero desktop app and the Zotero Connector for your browser. Create a new "MSc Thesis" library. This will be your data warehouse. Also install the Zotero plugin for Google Docs (or Word), which will auto-generate your bibliography in one click.`, type: 'task-phase', tags: ['tag-setup'], column: 'todo' },
 
             // Phase 1: Foundation & Data
-            { id: 't-10', title: 'PHASE 1: Foundation & Data', desc: 'Finalize Ch 1-3, collect all 40-50+ data sources.', type: 'task-phase', tags: ['tag-week1'], column: 'todo' },
-            { id: 't-11', title: '[Micro] Finalize Chapters 1-3', desc: 'Copy/paste from Master Draft. Read and confirm. Your foundation is DONE.', type: 'task-micro', tags: ['tag-week1'], column: 'todo' },
-            { id: 't-14', title: '[Micro] Send Ch 1-3 to Supervisor', desc: 'Send update to Dr. Dongmo for buy-in.', type: 'task-micro', tags: ['tag-week1'], column: 'todo' },
-            { id: 't-15', title: '[Sprint] Collect Corpus (Academic)', desc: 'Use UNISA Library & Perplexity "Cite" Hack. Get ~30 papers.', type: 'task-sprint', tags: ['tag-week1', 'tag-ai'], column: 'todo' },
-            { id: 't-16', title: '[Sprint] Collect Corpus (Grey Lit)', desc: 'Use Perplexity "site:" Hack. Get ~10-15 white papers.', type: 'task-sprint', tags: ['tag-week1', 'tag-ai'], column: 'todo' },
-            { id: 't-17', title: '[Sprint] Collect Corpus (Standards)', desc: 'Get primary texts for GDPR, PCI DSS, ISO 27001.', type: 'task-sprint', tags: ['tag-week1'], column: 'todo' },
-            { id: 't-18', title: '[Sprint] Process Corpus', desc: 'Add all PDFs to Zotero, then import all into ATLAS.ti project.', type: 'task-sprint', tags: ['tag-week1'], column: 'todo' },
+            { id: 't-10', title: 'PHASE 1: Foundation & Data', desc: `This week's goal is to finalize your foundation (Ch 1-3) and collect your entire raw data set (~50 sources). This is the "preparation" phase.`, type: 'task-phase', tags: ['tag-week1'], column: 'todo' },
+            { id: 't-11', title: '[Micro] Finalize Chapters 1-3', desc: `Your foundational chapters have been refactored. Your task is to read through the new Chapters 1, 2, and 3 in your Google Doc. Confirm they are solid and that the "golden thread" is clear. This is your first victory—your 2-year block is *broken*.`, type: 'task-micro', tags: ['tag-week1'], column: 'todo' },
+            { id: 't-14', title: '[Micro] Send Ch 1-3 to Supervisor', desc: `Email Dr. Dongmo. Attach your Google Doc (or a PDF of Ch 1-3).<br><p class='guide-step'><b>Email Template:</b><br>"Dear Dr. Dongmo, As discussed, I have refocused my initial chapters and significantly streamlined my methodology (Chapter 3) to be more concise and structured. Please see the attached for your review. I am now proceeding with the data collection and analysis phase this weekend."</p>`, type: 'task-micro', tags: ['tag-week1'], column: 'todo' },
+            { id: 't-15', title: '[Sprint] Collect Corpus (Academic)', desc: `This is a weekend sprint task. Your goal is ~30 academic papers.<br><ol class='list-decimal list-inside mt-2'><li>Open UNISA Library: Access IEEE Xplore, ACM Digital Library, & Scopus.</li><li>Run your 3 keyword searches: <code>("Scrum" AND "compliance")</code>, <code>("DevSecOps" AND "policy as code")</code>, <code>("Agile" AND "regulatory")</code>.</li><li>Download the top 10-15 most relevant papers.</li><li><b>AI HACK (Perplexity Pro):</b> Find the *single best "seed" paper* from your search. Give Perplexity this prompt:<br><div class='guide-hack'><strong>Prompt:</strong> "Find 15 academic papers published after 2020 that <i>cite</i> the paper '[Title of Seed Paper]'. The results must be about agile compliance or DevSecOps."</div></li><li>Add all ~30 papers to your "To Sort" folder.</li></ol>`, type: 'task-sprint', tags: ['tag-week1', 'tag-ai'], column: 'todo' },
+            { id: 't-16', title: '[Sprint] Collect Corpus (Grey Lit)', desc: `Your goal is ~10-15 high-quality white papers and reports.<br><p class='guide-step'><b>AI HACK (Perplexity Pro):</b> Use the <code>site:</code> operator to hunt for practitioner/vendor documents.</p><div class='guide-hack'><strong>Prompt 1:</strong> <code>"policy as code" "case study" "compliance" (site:hashiorp.com OR site:owasp.org OR site:ibm.com OR site:redhat.com)</code><br><strong>Prompt 2:</strong> <code>"agile compliance in banking" white paper</code></div><p>Save the PDFs to your "To Sort" folder.</p>`, type: 'task-sprint', tags: ['tag-week1', 'tag-ai'], column: 'todo' },
+            { id: 't-17', title: '[Sprint] Collect Corpus (Standards)', desc: `Your goal is ~5 primary standards documents. You need these to ground your analysis in real-world rules.<br><p class='guide-step'><b>AI HACK (Perplexity Pro / Google):</b></p><div class='guide-hack'><strong>Prompt:</strong> "Find the official PDF summary of GDPR for data processors and the latest PCI DSS 4.0 summary of changes."</div><p>Also find the official ISO 27001 overview. Save these to your folder.</p>`, type: 'task-sprint', tags: ['tag-week1'], column: 'todo' },
+            { id: 't-18', title: '[Sprint] Process Corpus', desc: `This task turns your "To Sort" folder into a queryable database.<br><ol class='list-decimal list-inside mt-2'><li>Open Zotero. Drag all ~50 PDFs from your folder into your "MSc Thesis" library.</li><li>Right-click the PDFs and select "Retrieve Metadata for PDFs". Fix any that fail.</li><li>Open ATLAS.ti. Create your new project.</li><li>Click "Add Documents" and import the entire folder of PDFs.</li></ol><p class='guide-step'>You are now ready for analysis. Your "Data" is collected.</p>`, type: 'task-sprint', tags: ['tag-week1'], column: 'todo' },
 
             // Phase 2: Analysis & Findings
-            { id: 't-20', title: 'PHASE 2: Analysis & Findings', desc: 'Execute your 3-phase analysis and write the new Chapter 4.', type: 'task-phase', tags: ['tag-week2'], column: 'todo' },
-            { id: 't-21', title: '[Micro] Pre-Coding Warmup', desc: 'Use Gemini to get a "sensitizing framework" of likely themes.', type: 'task-micro', tags: ['tag-week2', 'tag-ai'], column: 'todo' },
-            { id: 't-22', title: '[Micro] Phase 1 Coding (SQ1)', desc: 'In ATLAS.ti, code corpus for "current practices".', type: 'task-micro', tags: ['tag-week2'], column: 'todo' },
-            { id: 't-23', title: '[Micro] Phase 2 Coding & Theming (SQ2)', desc: 'In ATLAS.ti, code corpus for "challenges" and group into themes.', type: 'task-micro', tags: ['tag-week2'], column: 'todo' },
-            { id: 't-24', title: '[Micro] Phase 3 Synthesis (SQ3)', desc: 'Build your "Concept Matrix" in a Google Sheet.', type: 'task-micro', tags: ['tag-week2'], column: 'todo' },
-            { id: 't-25', title: '[Sprint] Write Sec 4.1 & 4.2', desc: 'Write Intro & "Status Quo" findings. Use AI Hack to synthesize quotes.', type: 'task-sprint', tags: ['tag-week2', 'tag-ai', 'tag-write'], column: 'todo' },
-            { id: 't-26', title: '[Sprint] Write Sec 4.3 (Challenges)', desc: 'Write up your 5-7 themes. Use AI Hack for each theme.', type: 'task-sprint', tags: ['tag-week2', 'tag-ai', 'tag-write'], column: 'todo' },
-            { id: 't-27', title: '[Sprint] Write Sec 4.4 & 4.5', desc: 'Write "Blueprint" from matrix & Chapter Summary.', type: 'task-sprint', tags: ['tag-week2', 'tag-ai', 'tag-write'], column: 'todo' },
-
+            { id: 't-20', title: 'PHASE 2: Analysis & Findings', desc: `This is the most important week. You are executing your 3-phase methodology. This is where the *real* research happens. The goal is to finish the week with a complete draft of Chapter 4.`, type: 'task-phase', tags: ['tag-week2'], column: 'todo' },
+            { id: 't-21', title: '[Micro] Pre-Coding Warmup', desc: `A "sensitizing framework" (from your methodology) warms up your brain so you know what to look for. This speeds up coding.<br><p class='guide-step'><b>AI HACK (Gemini 2.5 Pro):</b></p><div class='guide-hack'><strong>Prompt:</strong> "I am about to perform a thematic analysis on 50 papers about agile compliance. Based on your knowledge, what are the *likely* 'challenges' and 'current practices' I will find?"</div><p>Read the list. This gives you a mental map before you start.</p>`, type: 'task-micro', tags: ['tag-week2', 'tag-ai'], column: 'todo' },
+            { id: 't-22', title: '[Micro] Phase 1 Coding (SQ1)', desc: `This is your first pass. Open your ATLAS.ti project.<br><p class='guide-step'><b>Goal:</b> Answer SQ1: "How is compliance *currently* addressed?"</p><p>Read your documents. When you find a sentence or paragraph describing a current practice, highlight it and create a code. Examples:</p><ul><li><code>Practice: Compliance User Stories</code></li><li><code>Practice: Hardening Sprints</code></li><li><code>Practice: External Audits</code></li><li><code>Practice: Modifying DoD</code></li></ul><p>Don't code for anything else. Just focus on this one question.</p>`, type: 'task-micro', tags: ['tag-week2'], column: 'todo' },
+            { id: 't-23', title: '[Micro] Phase 2 Coding & Theming (SQ2)', desc: `This is your second pass. You can do this right after Phase 1.<br><p class='guide-step'><b>Goal:</b> Answer SQ2: "What *challenges* hinder compliance?"</p><p>Read the same documents, but now look for problems. Create codes for every challenge you see. Examples:</p><ul><li><code>Challenge: Cultural Resistance</code></li><li><code>Challenge: Lack of Automation</code></li><li><code>Challenge: Audit Friction</code></li><li><code>Challenge: Vague Requirements</code></li></ul><p class='guide-step'>After coding, use the ATLAS.ti "Code Co-occurrence" or "Code Groups" feature to cluster your new 'Challenge' codes into 5-7 core themes (e.g., 'Theme: People & Culture', 'Theme: Tooling Gaps').</p>`, type: 'task-micro', tags: ['tag-week2'], column: 'todo' },
+            { id: 't-24', title: '[Micro] Phase 3 Synthesis (SQ3)', desc: `This is the "Aha!" moment where you design the *solution*.<br><p class='guide-step'><b>Goal:</b> Answer SQ3: "Which *elements* are necessary for a framework?"</p><ol class='list-decimal list-inside mt-2'><li>Open a new Google Sheet.</li><li>List your 'Challenge Themes' (from t-23) in the first column (Rows).</li><li>List all *potential solutions* you saw in the literature in the first row (Columns). E.g., 'Compliance Champion Role', 'PaC Repository', 'CI/CD Gate', 'Compliance Backlog'.</li><li>Go through your ATLAS.ti codes. Where a paper links a *solution* to a *problem*, put a citation or "X" in the matrix.</li></ol><p>This matrix *is* your "Blueprint." It proves your framework isn't just an idea, it's *data-driven*.</p>`, type: 'task-micro', tags: ['tag-week2'], column: 'todo' },
+            { id: 't-25', title: '[Sprint] Write Sec 4.1 & 4.2', desc: `Open your 'Master Thesis' Google Doc to Chapter 4.<br><p class='guide-step'><b>Task:</b> Write Section 4.1 (Introduction) and 4.2 (Answering SQ1).</p><p class='guide-step'><b>AI HACK (ChatGPT Plus / Gemini):</b></p><ol><li>In ATLAS.ti, run a report for all coded segments for your 'Practice' codes.</li><li>Copy/paste these quotes into your AI.</li><li><div class='guide-hack'><strong>Prompt:</strong> "Here are 40 quotes from my literature analysis, all coded under 'Current Practices'. Synthesize these into a 1-2 page narrative for Section 4.2 of my thesis, 'The Status Quo of Agile Compliance'. Start by introducing the main practices and then use the quotes as evidence."</div></li><li>Paste the AI-draft into your doc and *edit it* with your own voice.</li></ol>`, type: 'task-sprint', tags: ['tag-week2', 'tag-ai', 'tag-write'], column: 'todo' },
+            { id: 't-26', title: '[Sprint] Write Sec 4.3 (Challenges)', desc: `This is the core of your analysis.<br><p class='guide-step'><b>Task:</b> Write Section 4.3 (Answering SQ2).</p><p class='guide-step'><b>AI HACK (ChatGPT Plus / Gemini):</b> Do this *one theme at a time* for best results.</p><ol><li>Run a report in ATLAS.ti for all quotes for 'Theme 1: People & Culture'.</li><li><div class='guide-hack'><strong>Prompt:</strong> "Here are 15 quotes related to my theme 'Cultural and Mindset Conflicts'. Write a 3-paragraph summary of this theme for my thesis, using the quotes as evidence."</div></li><li>Paste the draft into Sec 4.3.</li><li><b>Repeat</b> for all 5-7 of your themes.</li></ol><p>This turns a massive writing task into a manageable "edit and assemble" task.</p>`, type: 'task-sprint', tags: ['tag-week2', 'tag-ai', 'tag-write'], column: 'todo' },
+            { id: 't-27', title: '[Sprint] Write Sec 4.4 & 4.5', desc: `Almost done with the hardest chapter.<br><p class='guide-step'><b>Task:</b> Write Section 4.4 (Answering SQ3) and 4.5 (Chapter Summary).</p><p class='guide-step'><b>AI HACK (ChatGPT Plus / Gemini):</b></p><ol><li>Take a screenshot of your 'Concept Matrix' from Google Sheets (or copy the table).</li><li>Paste it into your AI.</li><li><div class='guide-hack'><strong>Prompt:</strong> "Here is my completed concept matrix, which maps 'Challenge Themes' to 'Candidate Solution Elements'. Synthesize this matrix into a narrative for Section 4.4, 'The Blueprint for a Solution'. For each *element* (e.g., 'Compliance Champion'), explain *which* challenge(s) it addresses, citing the matrix."</div></li><li>Paste and edit.</li><li>Write the 1-paragraph chapter summary (Sec 4.5) yourself.</li></ol>`, type: 'task-sprint', tags: ['tag-week2', 'tag-ai', 'tag-write'], column: 'todo' },
+            
             // Phase 3: Synthesis & Submission
-            { id: 't-30', title: 'PHASE 3: Synthesis & Submission', desc: 'Build your artifact. Write Ch 5 & 6. Assemble V1.0 Draft.', type: 'task-phase', tags: ['tag-week3'], column: 'todo' },
-            { id: 't-31', title: '[Micro] Draw Framework (Sec 5.2.1)', desc: 'Use Gemini "Mermaid.js" Hack to create your diagram.', type: 'task-micro', tags: ['tag-week3', 'tag-ai'], column: 'todo' },
-            { id: 't-32', title: '[Micro] Describe Framework (Sec 5.2.2)', desc: 'Write the description of each element. This is original work.', type: 'task-micro', tags: ['tag-week3', 'tag-write'], column: 'todo' },
-            { id: 't-33', title: '[Micro] Write Validation (Sec 5.3)', desc: 'Use Gemini "Socratic Method" Hack with the Beerbaum case.', type: 'task-micro', tags: ['tag-week3', 'tag-ai', 'tag-write'], column: 'todo' },
-            { id: 't-34', title: '[Sprint] Write Discussion (Sec 5.4)', desc: 'Write the "So what?" section. Implications for CSIR-SANReN.', type: 'task-sprint', tags: ['tag-week3', 'tag-write'], column: 'todo' },
-            { id: 't-35', title: '[Sprint] Write Chapter 6', desc: 'Write the full conclusion. Use AI Hack for Sec 6.2.', type: 'task-sprint', tags: ['tag-week3', 'tag-ai', 'tag-write'], column: 'todo' },
-            { id: 't-36', title: '[Sprint] Write Abstract', desc: 'Use Gemini "Abstract" Hack on your full draft.', type: 'task-sprint', tags: ['tag-week3', 'tag-ai', 'tag-write'], column: 'todo' },
-            { id: 't-37', title: '[Sprint] Generate References', desc: 'Use Zotero plugin to auto-generate all references.', type: 'task-sprint', tags: ['tag-week3'], column: 'todo' },
-            { id: 't-38', title: '[Sprint] Full Draft V1.0 Assembly', desc: 'Combine all parts, add ToC, run spell-check.', type: 'task-sprint', tags: ['tag-week3'], column: 'todo' },
+            { id: 't-30', title: 'PHASE 3: Synthesis & Submission', desc: `This is the "payoff" week. You take your findings from Chapter 4 and build your final artifact. You are no longer just *reporting* research; you are *creating* a new solution.`, type: 'task-phase', tags: ['tag-week3'], column: 'todo' },
+            { id: 't-31', title: '[Micro] Draw Framework (Sec 5.2.1)', desc: `Your framework needs a visual diagram. This is the "money shot" of your thesis.<br><p class='guide-step'><b>AI HACK (Gemini 2.5 Pro):</b> Use a text-to-diagram tool like Mermaid.js.</p><div class='guide-hack'><strong>Prompt:</strong> "Generate Mermaid.js code for a diagram showing the Scrum loop (Plan, Sprint, Review, Retro).
+1. Add a new role, 'Compliance Champion', who interacts with the PO.
+2. Add a 'PaC Repository' that is used by the 'Development Team'.
+3. Add an 'Automation Point' called 'CI/CD Compliance Gate' (with a pass/fail icon) between the 'Sprint' and the 'Increment'."</div><p>Paste the code into a free online Mermaid editor, screenshot the result, and paste it into Sec 5.2.1 of your Google Doc.</p>`, type: 'task-micro', tags: ['tag-week3', 'tag-ai'], column: 'todo' },
+            { id: 't-32', title: '[Micro] Describe Framework (Sec 5.2.2)', desc: `This is *your* original contribution. This is the "main event" of your thesis. You must write this yourself.<br><p class='guide-step'><b>Task:</b> Write Section 5.2.2.</p><p>For *each element* of your framework (e.g., "Compliance Champion," "PaC Repository"):</p><ol><li><b>WHAT:</b> Clearly define what it is.</li><li><b>WHO:</b> Who is responsible for it?</li><li><b>HOW:</b> How does it work inside a Sprint?</li><li><b>WHY:</b> (Most important!) Which challenge(s) from Chapter 4 does this element *directly solve*?</li></ol><p>This creates the "golden thread" from your analysis to your solution.</p>`, type: 'task-micro', tags: ['tag-week3', 'tag-write'], column: 'todo' },
+            { id: 't-33', title: '[Micro] Write Validation (Sec 5.3)', desc: `You must *prove* your framework has value, as per your DSR methodology.<br><p class='guide-step'><b>Task:</b> Execute your "Scenario-Based Walkthrough" by writing Section 5.3.</p><p class='guide-step'><b>AI HACK (Gemini "Socratic Method"):</b> This *is* the analytical validation.</p><ol><li>Open your AI.</li><li><div class='guide-hack'><strong>Prompt:</strong> "You are a skeptical academic examiner. I will apply my C-a-C-S framework to the Beerbaum (2020) banking case, which suffered from [Problem X and Y]. Ask me hard questions about its flaws, overhead, and effectiveness."</div></li><li>Write this "conversation" as your validation narrative. E.g., "A potential critique is that the 'Compliance Champion' becomes a bottleneck. However, the framework mitigates this by..."</li></ol>`, type: 'task-micro', tags: ['tag-week3', 'tag-ai', 'tag-write'], column: 'todo' },
+            { id: 't-34', title: '[Sprint] Write Discussion (Sec 5.4)', desc: `This is the "So what?" section. This is where you connect your work to the real world.<br><p class='guide-step'><b>Task:</b> Write Section 5.4, the discussion.</p><p>Answer these questions in your writing:</p><ul><li>What does your framework *mean* for the industry?</li><li>How does it solve the core "agile vs. compliance" conflict from Chapter 1?</li><li>What are the implications for an organization like CSIR-SANReN? (This shows practical relevance).</li><li>How does it re-frame compliance (e.g., from "bureaucracy" to "automated quality")?</li></ul>`, type: 'task-sprint', tags: ['tag-week3', 'tag-write'], column: 'todo' },
+            { id: 't-35', title: '[Sprint] Write Chapter 6', desc: `Time to land the plane. This chapter should be concise and strong.<br><p class='guide-step'><b>Task:</b> Write all of Chapter 6.</p><ul><li><b>Sec 6.1 (Summary):</b> Write a 1-paragraph summary of the "golden thread" (Problem -> Method -> Findings -> Solution).</li><li><b>Sec 6.3 (Contribution):</b> State your primary contribution (The C-a-C-S framework) and secondary (The "Wall of Challenges" synthesis).</li><li><b>Sec 6.4 (Limitations/Future Work):</b> Pull this from your methodology (Ch 3, Sec 3.10). List them (e.g., "Analytical validation only," "Scrum-specific"). Recommend future work ("Action-research study," "Kanban adaptation").</li></ul><p class='guide-step'><b>AI HACK (for Sec 6.2):</b></p><div class='guide-hack'><strong>Prompt:</strong> "Here are my 4 RQs [paste them] and 1-paragraph summaries of my Ch 4 and Ch 5. Write a concise, direct answer to each question for my thesis conclusion (Section 6.2)."</div>`, type: 'task-sprint', tags: ['tag-week3', 'tag-ai', 'tag-write'], column: 'todo' },
+            { id: 't-36', title: '[Sprint] Write Abstract', desc: `The Abstract is written *last*.<br><p class='guide-step'><b>Task:</b> Write your 300-word Abstract.</p><p class='guide-step'><b>AI HACK (Gemini 2.5 Pro):</b></p><ol><li>Copy your *entire* completed draft (Ch 1-6).</li><li><div class='guide-hack'><strong>Prompt:</strong> "I am pasting my entire MSc thesis below. Please write a 300-word academic abstract for it. It must include: 1) The problem, 2) The methodology (DSR, 3-phase analysis), 3) The key findings (the challenges), and 4) The solution (the C-a-C-S framework)."</div></li><li>Paste and edit for perfection.</li></ol>`, type: 'task-sprint', tags: ['tag-week3', 'tag-ai', 'tag-write'], column: 'todo' },
+            { id: 't-37', title: '[Sprint] Generate References', desc: `Do not do this manually.<br><p class='guide-step'><b>Task:</b> Auto-generate your bibliography.</p><ol><li>Open your Google Doc.</li><li>Click "Tools" > "Citations" (if you used the built-in tool) OR open the Zotero plugin.</li><li>Click "Add/Edit Bibliography".</li><li><b>Done.</b></li></ol><p>Ensure it's formatted to UNISA's required style (e.g., Harvard).</p>`, type: 'task-sprint', tags: ['tag-week3'], column: 'todo' },
+            { id: 't-38', title: '[Sprint] Full Draft V1.0 Assembly', desc: `The final assembly. This is the 'Version 1.0' draft.<br><p class='guide-step'><b>Task:</b> Assemble the full document.</p><ol><li>Add a Title Page.</li><li>Add your new Abstract.</li><li>Insert/Update the Table of Contents.</li><li>Run a final spell-check (e.g., Grammarly or ChatGPT).</li><li>Export as "Moeletji_Semenya_Thesis_V1.pdf".</li></ol>`, type: 'task-sprint', tags: ['tag-week3'], column: 'todo' },
             
             // Phase 4: Review
-            { id: 't-40', title: 'PHASE 4: Review & Finalize', desc: 'Get supervisor compliance and prepare for submission.', type: 'task-phase', tags: ['tag-week4'], column: 'todo' },
-            { id: 't-41', title: 'SUBMIT V1.0 TO SUPERVISOR', desc: 'Email the "Intention to Complete" PDF to Dr. Dongmo.', type: 'task-sprint', tags: ['tag-week4'], column: 'todo' },
-            { id: 't-42', title: '[Micro] Proofread & Format', desc: 'Check all UNISA formatting. Run through Grammarly/ChatGPT.', type: 'task-micro', tags: ['tag-week4', 'tag-ai'], column: 'todo' },
-            { id: 't-43', title: '[Sprint] Integrate Final Feedback', desc: 'Incorporate your supervisor\'s last comments.', type: 'task-sprint', tags: ['tag-week4'], column: 'todo' },
-            { id: 't-44', title: 'GENERATE FINAL PDF', desc: 'Create the final, submittable file.', type: 'task-sprint', tags: ['tag-week4'], column: 'todo' },
+            { id: 't-40', title: 'PHASE 4: Review & Finalize', desc: `This is the final checkpoint. You submit your V1.0 draft to your supervisor with a clear "intention to complete" and then incorporate their final feedback.`, type: 'task-phase', tags: ['tag-week4'], column: 'todo' },
+            { id: 't-41', title: 'SUBMIT V1.0 TO SUPERVISOR', desc: `This is the "Promised Land" email. You are no longer "stuck." You are a student submitting a *complete draft*.<br><p class='guide-step'><b>Task:</b> Attach "Moeletji_Semenya_Thesis_V1.pdf" to an email to Dr. Dongmo.</p><div class='guide-hack'><b>Email Template:</b><br>"Subject: Full V1.0 Thesis Draft for Review - Intention to Complete<br><br>Dear Dr. Dongmo,<br><br>Following my previous update, I have completed the data analysis, framework synthesis, and evaluation as per my DSR methodology.<br><br>Please find attached the complete, V1.0 draft of my dissertation for your review. I have worked to integrate your feedback, ensuring a structured and solid 'golden thread' connects the research questions to the final validated framework in Chapter 5.<br><br>I am submitting this to you as my formal 'intention to complete' and am eager to receive your final feedback so I can proceed with submission.<br><br>Thank you for your guidance."</div>`, type: 'task-sprint', tags: ['tag-week4'], column: 'todo' },
+            { id: 't-42', title: '[Micro] Proofread & Format', desc: `While you wait for feedback, do a "deep" proofread.<br><p class='guide-step'><b>Task:</b> Check UNISA formatting (margins, fonts, page numbers).</p><p class='guide-step'><b>AI HACK (ChatGPT Plus / Gemini):</b></p><ol><li>Copy/paste your draft *one chapter at a time*.</li><li><div class='guide-hack'><strong>Prompt:</strong> "Act as a strict academic proofreader. Check the following text for all spelling errors, grammatical mistakes, and unclear sentences. Also, find any sentences that are overly verbose and suggest a more concise alternative."</div></li></ol>`, type: 'task-micro', tags: ['tag-week4', 'tag-ai'], column: 'todo' },
+            { id: 't-43', title: '[Sprint] Integrate Final Feedback', desc: `Your supervisor will send back comments. This is the final step.<br><p class='guide-step'><b>Task:</b> Open their feedback. Go through every comment, one by one, and make the change in your Google Doc. Do not argue; just accept and update. This is about finishing.</p>`, type: 'task-sprint', tags: ['tag-week4'], column: 'todo' },
+            { id: 't-44', title: 'GENERATE FINAL PDF', desc: `<p>The final, final step. You have integrated the feedback. You have proofread. You are done.</p><p class='guide-step'><b>Task:</b> Export your Google Doc to "Moeletji_Semenya_Thesis_FINAL.pdf". Submit it to UNISA.</p><p class'guide-step'><b>Congratulations.</b></p>`, type: 'task-sprint', tags: ['tag-week4'], column: 'todo' },
         ];
 
         let tasks = [];
         let db, auth, userId, dbDocRef;
-        let isSaving = false; // A simple flag to prevent save-loops
+        let isSaving = false; // Prevents save-loops
+        let isInitialLoad = true; // Prevents "no data" flicker
         
         const loadingOverlay = document.getElementById('loading-overlay');
+        const modalOverlay = document.getElementById('modal-overlay');
+        const modalContent = document.getElementById('modal-content');
+        const modalTitle = document.getElementById('modal-title');
+        const modalBody = document.getElementById('modal-body');
+        const modalClose = document.getElementById('modal-close');
+
+        modalOverlay.addEventListener('click', closeModal);
+        modalContent.addEventListener('click', (e) => e.stopPropagation());
+        modalClose.addEventListener('click', closeModal);
+
+        function showModal(task) {
+            modalTitle.textContent = task.title;
+            modalBody.innerHTML = task.desc; // Use innerHTML to render formatted descriptions
+            modalOverlay.style.display = 'flex';
+        }
+
+        function closeModal() {
+            modalOverlay.style.display = 'none';
+        }
 
         /**
          * Initializes Firebase and sets up the real-time listener.
          */
         async function initFirebase() {
             try {
-                // Get injected config
-                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-                const firebaseConfig = JSON.parse(__firebase_config);
+                // Check if placeholders are still present
+                if (firebaseConfig.apiKey.startsWith("%%")) {
+                    loadingOverlay.innerHTML = `<p class="text-red-600 font-bold">Configuration Error</p><p>The app is not connected to Firebase. Please follow the <code>GitHub_Setup_Guide.md</code> to create your project and set up GitHub Actions secrets.</p>`;
+                    return;
+                }
 
                 // Initialize Firebase
                 const app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
                 db = getFirestore(app);
-                setLogLevel('Debug'); // Enable detailed logs
+                setLogLevel('Debug'); 
 
-                // Sign in
-                if (typeof __initial_auth_token !== 'undefined') {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
+                console.log("Firebase initialized. Authenticating...");
+                
+                // --- Authentication (Robust Flow) ---
+                // Wait for auth to be ready
+                await auth.authStateReady(); 
+                
+                // Try to sign in anonymously
+                if (!auth.currentUser) {
                     await signInAnonymously(auth);
                 }
+                
+                if (!auth.currentUser) {
+                    throw new Error("Authentication failed. User is not signed in.");
+                }
+                
                 userId = auth.currentUser.uid;
                 console.log("User signed in with ID:", userId);
 
-                // Define the path to the data
-                // This is a private document for this user and this app
-                dbDocRef = doc(db, "artifacts", appId, "users", userId, "thesis-tracker", "main");
+                // --- Database Reference ---
+                // This is a simpler path for a personal app
+                dbDocRef = doc(db, "users", userId, "thesis-tracker", "main");
 
-                // Set up the real-time listener
+                // --- Real-Time Listener ---
                 setupRealtimeListener();
                 
             } catch (error) {
                 console.error("Firebase Init Error:", error);
-                loadingOverlay.textContent = "Error loading board. Please refresh.";
+                loadingOverlay.innerHTML = `<p class="text-red-600 font-bold">Error loading board: ${error.message}</p><p>Please refresh.</p>`;
             }
         }
 
@@ -289,21 +355,32 @@
         function setupRealtimeListener() {
             if (!dbDocRef) return;
 
+            console.log("Setting up real-time listener...");
             onSnapshot(dbDocRef, (docSnap) => {
-                isSaving = true; // Prevent save-loop on initial load
+                if (isSaving) return; // Ignore snapshot triggered by our own save
+
                 if (docSnap.exists()) {
                     console.log("Data loaded from Firestore.");
-                    tasks = docSnap.data().tasks;
+                    // Basic validation
+                    if (docSnap.data().tasks && Array.isArray(docSnap.data().tasks)) {
+                        tasks = docSnap.data().tasks;
+                    } else {
+                        console.warn("Firestore data is corrupt. Resetting to initial tasks.");
+                        tasks = initialTasks;
+                        saveTasks();
+                    }
                 } else {
-                    console.log("No data found. Initializing with default tasks.");
+                    console.log("No data found. Initializing with default tasks...");
                     tasks = initialTasks;
                     saveTasks(); // Save the initial state to Firestore
                 }
+                
                 renderTasks();
-                isSaving = false;
+                isInitialLoad = false; // Mark initial load as complete
+                
             }, (error) => {
                 console.error("Firestore Snapshot Error:", error);
-                loadingOverlay.textContent = "Error connecting to board. Please refresh.";
+                loadingOverlay.innerHTML = `<p class="text-red-600 font-bold">Error connecting to board.</p><p>Please refresh.</p>`;
             });
         }
 
@@ -311,10 +388,9 @@
          * Saves the current tasks array to Firestore.
          */
         async function saveTasks() {
-            // Prevent saving if we're already in the process or if db isn't ready
-            if (!dbDocRef || isSaving) return;
+            if (!dbDocRef) return;
             
-            isSaving = true;
+            isSaving = true; // Set flag to prevent onSnapshot loop
             console.log("Saving tasks to Firestore...");
             try {
                 // We save the entire tasks array in one document
@@ -323,7 +399,8 @@
             } catch (error) {
                 console.error("Error saving tasks:", error);
             }
-            isSaving = false;
+            // Release the flag *after* a short delay to allow Firestore to settle
+            setTimeout(() => { isSaving = false; }, 100);
         }
 
         /**
@@ -350,12 +427,23 @@
                     task.tags.forEach(tag => {
                         tagsHtml += `<span class="tag ${tag}">${tag.split('-')[1].toUpperCase()}</span>`;
                     });
+                    
+                    // Create a simple, plain-text preview of the description
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = task.desc;
+                    const descPreview = tempDiv.textContent || tempDiv.innerText || "";
 
                     taskElement.innerHTML = `
                         <p>${task.title}</p>
-                        <p class="desc">${task.desc}</p>
-                        <div>${tagsHtml}</div>
+                        <p class="desc-preview">${descPreview}</p>
+                        <div class="tags">${tagsHtml}</div>
                     `;
+                    
+                    // Add click listener for modal
+                    taskElement.addEventListener('click', () => {
+                        showModal(task);
+                    });
+                    
                     column.appendChild(taskElement);
                     counts[task.column]++;
                 }
@@ -366,8 +454,11 @@
             document.getElementById('count-inprogress').textContent = counts.inprogress;
             document.getElementById('count-done').textContent = counts.done;
             
-            // Hide loading overlay
-            loadingOverlay.style.display = 'none';
+            // Hide loading overlay only after the first render
+            if (isInitialLoad === false) {
+                 loadingOverlay.style.opacity = '0';
+                 setTimeout(() => { loadingOverlay.style.display = 'none'; }, 300);
+            }
 
             // Re-add drag-and-drop listeners to all tasks
             addDragListeners();
@@ -381,7 +472,12 @@
             const columns = document.querySelectorAll('.kanban-column');
 
             draggables.forEach(task => {
-                task.addEventListener('dragstart', () => {
+                task.addEventListener('dragstart', (e) => {
+                    // Don't drag if modal is open
+                    if (modalOverlay.style.display === 'flex') {
+                        e.preventDefault();
+                        return;
+                    }
                     task.classList.add('dragging');
                 });
 
@@ -396,7 +492,9 @@
                         // Update the column in the local data array
                         taskToUpdate.column = newColumnId;
                         // Save the updated tasks array to Firestore
-                        // The onSnapshot listener will handle the re-render
+                        // The onSnapshot listener will handle the re-render,
+                        // but we call renderTasks locally for immediate feedback
+                        renderTasks();
                         saveTasks();
                     }
                 });
@@ -404,13 +502,14 @@
 
             columns.forEach(column => {
                 column.addEventListener('dragover', e => {
-                    e.preventDefault(); // Necessary to allow dropping
+                    e.preventDefault(); 
                     column.classList.add('drag-over');
                     const dragging = document.querySelector('.dragging');
+                    if (!dragging) return;
+                    
                     const afterElement = getDragAfterElement(column.querySelector('.kanban-tasks'), e.clientY);
                     const taskList = column.querySelector('.kanban-tasks');
                     
-                    // This provides the immediate visual feedback
                     if (afterElement == null) {
                         taskList.appendChild(dragging);
                     } else {
@@ -425,7 +524,6 @@
                 column.addEventListener('drop', e => {
                     e.preventDefault();
                     column.classList.remove('drag-over');
-                    // The 'dragend' event on the task will handle the data update and save
                 });
             });
         }
