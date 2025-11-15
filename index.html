@@ -172,7 +172,6 @@
         <div class="spinner"></div>
         <p>Connecting to your board...</p>
     </div>
-    
     <!-- Task Detail Modal -->
     <div id="modal-overlay">
         <div id="modal-content">
@@ -287,6 +286,12 @@
         const modalBody = document.getElementById('modal-body');
         const modalClose = document.getElementById('modal-close');
 
+        function hideLoadingOverlay() {
+            if (!loadingOverlay || loadingOverlay.style.display === 'none') return;
+            loadingOverlay.style.opacity = '0';
+            setTimeout(() => { loadingOverlay.style.display = 'none'; }, 300);
+        }
+
         modalOverlay.addEventListener('click', closeModal);
         modalContent.addEventListener('click', (e) => e.stopPropagation());
         modalClose.addEventListener('click', closeModal);
@@ -376,7 +381,10 @@
                 }
                 
                 renderTasks();
-                isInitialLoad = false; // Mark initial load as complete
+                if (isInitialLoad) {
+                    hideLoadingOverlay();
+                    isInitialLoad = false; // Mark initial load as complete
+                }
                 
             }, (error) => {
                 console.error("Firestore Snapshot Error:", error);
@@ -454,12 +462,6 @@
             document.getElementById('count-inprogress').textContent = counts.inprogress;
             document.getElementById('count-done').textContent = counts.done;
             
-            // Hide loading overlay only after the first render
-            if (isInitialLoad === false) {
-                 loadingOverlay.style.opacity = '0';
-                 setTimeout(() => { loadingOverlay.style.display = 'none'; }, 300);
-            }
-
             // Re-add drag-and-drop listeners to all tasks
             addDragListeners();
         }
