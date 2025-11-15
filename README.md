@@ -1,63 +1,74 @@
-**MSc Thesis Sprint Tracker**
+# MSc Thesis Sprint Tracker
 
-This is a simple, self-contained Kanban board to track the progress of a 3-week (21-day) intensive thesis sprint. It is designed to be a lightweight, personal project management tool.
+React + TypeScript rewrite of the thesis kanban board. The UI mirrors the original single-page experience, but the data layer now lives in a Vite application with Firebase handled via environment variables so no credentials are committed to the repo.
 
-It is built with HTML, Tailwind CSS for styling, and plain JavaScript for interactivity.
+## Features
 
-**Features**
+- Real-time board state stored under `/boards/{boardId}` in Firestore so every device sees the same card positions.
+- Anonymous Firebase Auth session established before any reads/writes.
+- Drag-and-drop cards, quick detail modal with sanitized HTML, and a status banner that surfaces deployment info.
+- Secrets kept out of the repo. Builds populate `VITE_*` variables via the GitHub Action or a local `.env` file.
 
-- **Drag-and-Drop:** Easily move tasks between "To Do," "In Progress," and "Done."
-- **Persistent State:** Your task board saves its state in your browser's **localStorage**. You can close the tab and your progress will be there when you return.
-- **Color-Coded Tags:** Tasks are visually tagged by type:
-  - **PHASE (Red):** High-level project phases.
-  - **SPRINT (Orange):** Weekend-long, high-effort tasks.
-  - **MICRO (Blue):** Weekday, 1-2 hour microtasks.
-  - **AI (Purple):** Tasks where AI tools (Gemini, ChatGPT) can be leveraged.
-  - **WRITE (Pink):** Specific writing-focused tasks.
-- **Task Counters:** Each column shows the current number of tasks.
-- **Responsive:** Usable on both desktop and mobile browsers.
+## Getting Started
 
-**How to Use**
+1. **Install dependencies**
+   ```bash
+   npm install
+   ```
+2. **Create a `.env` from the sample**
+   ```bash
+   cp .env.example .env
+   # Fill in your Firebase project values
+   ```
+3. **Run locally**
+   ```bash
+   npm run dev
+   ```
+   Vite serves the app on http://localhost:5173 by default.
 
-This is a single, static HTML file. No build process or servers are required.
+## Firebase Setup
 
-### Configure Firebase (for GitHub Pages + local dev)
+1. Enable Anonymous Authentication in the Firebase console.
+2. Create a document at `boards/<VITE_FIREBASE_BOARD_ID>` with a `tasks` array (you can paste the default tasks from `src/data/initialTasks.ts`).  
+3. Firestore rules (extend as needed):
+   ```javascript
+   rules_version = '2';
+   service cloud.firestore {
+     match /databases/{database}/documents {
+       match /boards/{boardId} {
+         allow read, write: if request.auth != null;
+       }
+     }
+   }
+   ```
 
-1. **Create your config JSON locally**
-   - Copy `firebase-config.template.json` to `firebase-config.json` (this file is `.gitignore`'d).
-   - Fill in `boardAppId`, `firebaseConfig` (apiKey, authDomain, etc.), and `initialAuthToken` only if you use a custom token flow.
-   - Keep this file private—do not commit it.
-2. **Store the config in GitHub Secrets**
-   - Open your repo → *Settings* → *Secrets and variables* → *Actions* → *New repository secret*.
-   - Name it `FIREBASE_CONFIG_JSON` and paste the **entire JSON** (minified or pretty-printed is fine).
-   - Prefer Firebase API keys with HTTP referrer restrictions and locked-down Firestore rules.
-3. **Deploy via GitHub Pages workflow**
-   - The workflow `.github/workflows/static.yml` now writes `firebase-config.json` during the build using the secret, so Pages gets the same config without exposing it in git history.
-   - If the secret is missing, the workflow fails fast to avoid publishing a broken build.
-4. **Rotate / update**
-   - Update your local `firebase-config.json` and the `FIREBASE_CONFIG_JSON` secret together whenever keys or IDs change.
-   - Remove any obsolete keys from Firebase console to prevent orphaned credentials.
+## Environment Variables
 
-**1\. Local Use**
+| Key                                   | Description                                |
+| ------------------------------------- | ------------------------------------------ |
+| `VITE_FIREBASE_API_KEY`               | Firebase Web API key                       |
+| `VITE_FIREBASE_AUTH_DOMAIN`           | `*.firebaseapp.com` auth domain            |
+| `VITE_FIREBASE_PROJECT_ID`            | Firebase project id                        |
+| `VITE_FIREBASE_STORAGE_BUCKET`        | Storage bucket                             |
+| `VITE_FIREBASE_MESSAGING_SENDER_ID`   | Sender id                                  |
+| `VITE_FIREBASE_APP_ID`                | App id                                     |
+| `VITE_FIREBASE_BOARD_ID`              | Firestore board document id (defaults to `shared-board`) |
 
-- Download the Thesis_Kanban_Tracker_v2.html file.
-- Double-click it to open it in your preferred web browser (Chrome, Firefox, Safari, Edge).
-- Start dragging your tasks. Your progress will be saved automatically in that browser.
+## GitHub Actions Deployment
 
-**2\. Live Deployment (GitHub Pages)**
+The workflow in `.github/workflows/static.yml` installs dependencies, writes a `.env` file from repository secrets, runs the production build, and publishes the `dist` folder to GitHub Pages. Configure the following secrets in your repository before running the workflow:
 
-This repository is deployed using GitHub Pages.
+- `FIREBASE_API_KEY`
+- `FIREBASE_AUTH_DOMAIN`
+- `FIREBASE_PROJECT_ID`
+- `FIREBASE_STORAGE_BUCKET`
+- `FIREBASE_MESSAGING_SENDER_ID`
+- `FIREBASE_APP_ID`
+- `FIREBASE_BOARD_ID`
 
-You can access the live, persistent tracker at:
+## Tech Stack
 
-**https://\[YOUR_USERNAME\].github.io/thesis-tracker/Thesis_Kanban_Tracker_v2.html**
-
-_(You will need to replace \[YOUR_USERNAME\] with your actual GitHub username after you deploy it following the guide.)_
-
-**File Structure**
-
-/
-│
-├── index.html (The entire web application)
-│
-└── README.md
+- React 19 + TypeScript
+- Vite 7
+- Firebase (Auth + Firestore)
+- DOMPurify for safe HTML rendering
