@@ -7,6 +7,8 @@ React + TypeScript rewrite of the thesis kanban board. The UI mirrors the origin
 - Real-time board state stored under `/boards/{boardId}` in Firestore so every device sees the same card positions.
 - Anonymous Firebase Auth session established before any reads/writes.
 - Drag-and-drop cards, quick detail modal with sanitized HTML, and a status banner that surfaces deployment info.
+- Sprint window panel that assigns weekly due dates + overflow buffers to every task.
+- Friday reminder pipeline powered by GitHub Actions + SMTP so you get emails about unfinished sprint work without needing Firebase Functions.
 - Secrets kept out of the repo. Builds populate `VITE_*` variables via the GitHub Action or a local `.env` file.
 
 ## Getting Started
@@ -53,10 +55,37 @@ React + TypeScript rewrite of the thesis kanban board. The UI mirrors the origin
 | `VITE_FIREBASE_MESSAGING_SENDER_ID`   | Sender id                                  |
 | `VITE_FIREBASE_APP_ID`                | App id                                     |
 | `VITE_FIREBASE_BOARD_ID`              | Firestore board document id (defaults to `shared-board`) |
+| `VITE_NOTIFICATION_EMAIL`             | Destination email for the Friday sprint reminder |
+
+## Reminder Automation (Free Tier Friendly)
+
+The board tracks outstanding sprint work in Firestore and mirrors the latest snapshot to `/reminders/{boardId}`. A GitHub Actions job (defined in `.github/workflows/static.yml`) runs every Friday at 09:00 UTC, executes `npm run reminder:run`, and sends an email via SMTP with the open sprint tasks. No Firebase Functions or paid add-ons are required.
+
+The `scripts/sendReminder.ts` runner expects the following repository secrets:
+
+| Secret | Purpose |
+| ------ | ------- |
+| `FIREBASE_SERVICE_ACCOUNT` | JSON contents of a Firebase service account with access to Firestore (copy the JSON into the secret as-is). |
+| `FIREBASE_BOARD_ID`        | Same value you use in the UI (`shared-board` by default). |
+| `REMINDER_TO_EMAIL`        | Address that should receive the sprint digest. |
+| `REMINDER_FROM_EMAIL`      | From header shown in the email (must match your SMTP account for Gmail). |
+| `SMTP_HOST` / `SMTP_PORT`  | SMTP server host/port (e.g., `smtp.gmail.com` / `465`). |
+| `SMTP_USERNAME` / `SMTP_PASSWORD` | Credentials for the SMTP server (for Gmail, generate an App Password and use your Gmail address as the username). |
+
+During the reminder run the script:
+
+1. Reads `/boards/{boardId}` and ensures each task has a due/overflow date.
+2. Builds a summary of non-`done` sprint tasks.
+3. Sends a plaintext email via `nodemailer`.
+4. Updates `/reminders/{boardId}` with the timestamp + snapshot so the UI can display the last send time.
+
+If there are no open sprint tasks, the workflow exits gracefully without sending an email.
 
 ## GitHub Actions Deployment
 
-The workflow in `.github/workflows/static.yml` installs dependencies, writes a `.env` file from repository secrets, runs the production build, and publishes the `dist` folder to GitHub Pages. Configure the following secrets in your repository before running the workflow:
+The workflow in `.github/workflows/static.yml` installs dependencies, writes a `.env` file from repository secrets, runs the production build, and publishes the `dist` folder to GitHub Pages. It also contains a scheduled job (`cron: 0 9 * * 5`) that invokes the reminder script described above.
+
+Configure these secrets for the Pages deployment:
 
 - `FIREBASE_API_KEY`
 - `FIREBASE_AUTH_DOMAIN`
@@ -65,7 +94,9 @@ The workflow in `.github/workflows/static.yml` installs dependencies, writes a `
 - `FIREBASE_MESSAGING_SENDER_ID`
 - `FIREBASE_APP_ID`
 - `FIREBASE_BOARD_ID`
+- `REMINDER_TO_EMAIL` (re-used so the UI can display who receives notifications)
 
+Add the SMTP + service account secrets from the reminder table so the scheduled job can authenticate and send mail.
 ## Tech Stack
 
 - React 19 + TypeScript
