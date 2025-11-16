@@ -7,7 +7,7 @@ React + TypeScript rewrite of the thesis kanban board. The UI mirrors the origin
 - Real-time board state stored under `/boards/{boardId}` in Firestore so every device sees the same card positions.
 - Anonymous Firebase Auth session established before any reads/writes.
 - Drag-and-drop cards, quick detail modal with sanitized HTML, and a status banner that surfaces deployment info.
-- Sprint window panel that assigns weekly due dates + overflow buffers to every task.
+- Sprint window panel that assigns weekly due dates + overflow buffers to every task and keeps each sprint in a Monday→Sunday cadence so deadlines cascade week over week automatically (based on `tag-weekN` tags or the `sprintIndex` field).
 - Friday reminder pipeline powered by GitHub Actions + SMTP so you get emails about unfinished sprint work without needing Firebase Functions.
 - Secrets kept out of the repo. Builds populate `VITE_*` variables via the GitHub Action or a local `.env` file.
 
@@ -74,8 +74,8 @@ The `scripts/sendReminder.ts` runner expects the following repository secrets:
 
 During the reminder run the script:
 
-1. Reads `/boards/{boardId}` and ensures each task has a due/overflow date.
-2. Builds a summary of non-`done` sprint tasks.
+1. Reads `/boards/{boardId}` and ensures each task has a due/overflow date tied to its sprint week (auto-derived from `tag-weekN` tags or a `sprintIndex` field).
+2. Builds a summary of non-`done` tasks that belong to the currently active sprint.
 3. Sends a plaintext email via `nodemailer`.
 4. Updates `/reminders/{boardId}` with the timestamp + snapshot so the UI can display the last send time.
 

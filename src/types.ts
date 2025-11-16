@@ -18,6 +18,7 @@ export interface Task {
   dueDate?: string;
   overflowDate?: string;
   subtasks?: Subtask[];
+  sprintIndex?: number;
 }
 
 export interface ColumnConfig {

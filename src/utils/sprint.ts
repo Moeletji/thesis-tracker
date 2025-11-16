@@ -1,11 +1,21 @@
 import type { Task } from "../types";
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
+const WEEK_IN_MS = DAY_IN_MS * 7;
 
 export interface SprintWindow {
   start: Date;
   end: Date;
   overflowEnd: Date;
+}
+
+export interface SprintScheduleEntry extends SprintWindow {
+  index: number;
+}
+
+export interface SprintScheduleOptions {
+  referenceDate?: Date;
+  totalSprints?: number;
 }
 
 export type DeadlineStatus = "none" | "ontrack" | "overflow" | "late";
@@ -28,36 +38,95 @@ export const longDateFormatter = new Intl.DateTimeFormat("en", {
   year: "numeric",
 });
 
-export function getSprintWindow(referenceDate = new Date()): SprintWindow {
+const startOfCurrentSprint = (referenceDate = new Date()) => {
   const start = new Date(referenceDate);
   start.setHours(0, 0, 0, 0);
+  const day = start.getDay();
+  const distanceFromMonday = (day + 6) % 7;
+  start.setDate(start.getDate() - distanceFromMonday);
+  return start;
+};
 
-  const end = new Date(start);
-  end.setDate(start.getDate() + 6);
-  end.setHours(23, 59, 59, 999);
+export function buildSprintSchedule(
+  options: SprintScheduleOptions = {}
+): SprintScheduleEntry[] {
+  const { referenceDate = new Date(), totalSprints = 4 } = options;
+  const firstStart = startOfCurrentSprint(referenceDate);
 
-  const overflowEnd = new Date(end);
-  overflowEnd.setDate(end.getDate() + 7);
-  overflowEnd.setHours(23, 59, 59, 999);
-
-  return { start, end, overflowEnd };
+  return Array.from({ length: totalSprints }, (_, idx) => {
+    const start = new Date(firstStart.getTime() + idx * WEEK_IN_MS);
+    const end = new Date(start.getTime() + 6 * DAY_IN_MS);
+    end.setHours(23, 59, 59, 999);
+    const overflowEnd = new Date(end.getTime() + WEEK_IN_MS);
+    return { index: idx + 1, start, end, overflowEnd };
+  });
 }
 
-export function ensureSprintDates(tasks: Task[], window: SprintWindow) {
+export function getActiveSprint(
+  schedule: SprintScheduleEntry[],
+  referenceDate = new Date()
+) {
+  if (schedule.length === 0) {
+    const fallback = buildSprintSchedule({ referenceDate, totalSprints: 1 });
+    return fallback[0];
+  }
+
+  return (
+    schedule.find(
+      (sprint) =>
+        referenceDate >= sprint.start && referenceDate <= sprint.overflowEnd
+    ) ?? schedule[schedule.length - 1]
+  );
+}
+
+export function resolveTaskSprintIndex(task: Task) {
+  if (typeof task.sprintIndex === "number" && !Number.isNaN(task.sprintIndex)) {
+    return Math.max(1, Math.floor(task.sprintIndex));
+  }
+
+  const sprintTag = task.tags?.find((tag) => /tag-week\d+/i.test(tag));
+  if (sprintTag) {
+    const match = sprintTag.match(/tag-week(\d+)/i);
+    if (match) {
+      return parseInt(match[1], 10);
+    }
+  }
+
+  return 1;
+}
+
+const resolveWindowForTask = (
+  task: Task,
+  schedule: SprintScheduleEntry[]
+): SprintScheduleEntry => {
+  const sprintIndex = resolveTaskSprintIndex(task);
+  return (
+    schedule.find((entry) => entry.index === sprintIndex) ??
+    schedule[schedule.length - 1]
+  );
+};
+
+export function ensureSprintDates(
+  tasks: Task[],
+  schedule: SprintScheduleEntry[]
+) {
   let changed = false;
 
   const normalized = tasks.map((task) => {
+    const sprintWindow = resolveWindowForTask(task, schedule);
     const nextTask: Task = {
       ...task,
-      dueDate: task.dueDate ?? window.end.toISOString(),
-      overflowDate: task.overflowDate ?? window.overflowEnd.toISOString(),
+      sprintIndex: resolveTaskSprintIndex(task),
+      dueDate: sprintWindow.end.toISOString(),
+      overflowDate: sprintWindow.overflowEnd.toISOString(),
       subtasks: Array.isArray(task.subtasks) ? task.subtasks : [],
     };
 
     if (
       task.dueDate !== nextTask.dueDate ||
       task.overflowDate !== nextTask.overflowDate ||
-      task.subtasks !== nextTask.subtasks
+      task.subtasks !== nextTask.subtasks ||
+      task.sprintIndex !== nextTask.sprintIndex
     ) {
       changed = true;
     }
@@ -138,14 +207,6 @@ export function getNextReminderDate(referenceDate = new Date()) {
   next.setDate(reference.getDate() + diff);
   next.setHours(9, 0, 0, 0);
   return next;
-}
-
-export function isSameDay(dateA: Date, dateB: Date) {
-  return (
-    dateA.getFullYear() === dateB.getFullYear() &&
-    dateA.getMonth() === dateB.getMonth() &&
-    dateA.getDate() === dateB.getDate()
-  );
 }
 
 export function formatDateRange(start: Date, end: Date) {

@@ -10,13 +10,15 @@ import { initialTasks } from "./data/initialTasks";
 import { auth, db } from "./lib/firebase";
 import type { ColumnConfig, ColumnId, Task } from "./types";
 import {
+  buildSprintSchedule,
   ensureSprintDates,
   formatDateRange,
+  getActiveSprint,
   getNextReminderDate,
   getOutstandingTasks,
-  getSprintWindow,
   longDateFormatter,
   daysUntil,
+  resolveTaskSprintIndex,
 } from "./utils/sprint";
 
 const resolvedBoardId =
@@ -28,6 +30,10 @@ const columnConfig: ColumnConfig[] = [
   { id: "done", title: "Done" },
 ];
 const columnOrder: ColumnId[] = ["todo", "inprogress", "done"];
+const seededSprintCount = Math.max(
+  1,
+  ...initialTasks.map((task) => resolveTaskSprintIndex(task))
+);
 
 const reminderEmail =
   import.meta.env.VITE_NOTIFICATION_EMAIL?.trim() || null;
@@ -49,6 +55,7 @@ interface ReminderTaskSummary {
 
 interface ReminderSnapshot {
   generatedAt: number;
+  sprintIndex?: number;
   sprintStart: string;
   sprintEnd: string;
   overflowEnd: string;
@@ -63,9 +70,16 @@ interface ReminderDocument {
 }
 
 function App() {
-  const sprintWindow = useMemo(() => getSprintWindow(), []);
+  const sprintSchedule = useMemo(
+    () => buildSprintSchedule({ totalSprints: seededSprintCount }),
+    []
+  );
+  const activeSprint = useMemo(
+    () => getActiveSprint(sprintSchedule),
+    [sprintSchedule]
+  );
   const [tasks, setTasks] = useState<Task[]>(() =>
-    ensureSprintDates(initialTasks, sprintWindow).tasks
+    ensureSprintDates(initialTasks, sprintSchedule).tasks
   );
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
@@ -117,7 +131,7 @@ function App() {
                 : initialTasks;
               const { tasks: normalized, changed } = ensureSprintDates(
                 sourceTasks,
-                sprintWindow
+                sprintSchedule
               );
               setTasks(normalized);
               if (changed) {
@@ -137,7 +151,7 @@ function App() {
             } else {
               const { tasks: seeded } = ensureSprintDates(
                 initialTasks,
-                sprintWindow
+                sprintSchedule
               );
               const timestamp = Date.now();
               await setDoc(boardRef, {
@@ -174,16 +188,18 @@ function App() {
 
     bootstrap();
     return () => unsubscribe?.();
-  }, [boardRef, sprintWindow]);
+  }, [boardRef, sprintSchedule]);
 
   const syncReminderSnapshot = useCallback(
     async (tasksToSync: Task[], timestamp: number) => {
+      if (!activeSprint) return;
       const outstanding = tasksToSync.filter((task) => task.column !== "done");
       const snapshotPayload: ReminderSnapshot = {
         generatedAt: timestamp,
-        sprintStart: sprintWindow.start.toISOString(),
-        sprintEnd: sprintWindow.end.toISOString(),
-        overflowEnd: sprintWindow.overflowEnd.toISOString(),
+        sprintIndex: activeSprint.index,
+        sprintStart: activeSprint.start.toISOString(),
+        sprintEnd: activeSprint.end.toISOString(),
+        overflowEnd: activeSprint.overflowEnd.toISOString(),
         outstandingCount: outstanding.length,
         outstandingTasks: outstanding.map((task) => ({
           id: task.id,
@@ -204,7 +220,7 @@ function App() {
       );
       setReminderSnapshot(snapshotPayload);
     },
-    [reminderEmail, reminderRef, sprintWindow]
+    [activeSprint, reminderEmail, reminderRef]
   );
 
   useEffect(() => {
@@ -243,7 +259,7 @@ function App() {
     if (reminderSnapshot) return;
     const timestamp = Date.now();
     void syncReminderSnapshot(tasks, timestamp);
-  }, [isLoading, reminderSnapshot, syncReminderSnapshot, tasks]);
+  }, [activeSprint, isLoading, reminderSnapshot, syncReminderSnapshot, tasks]);
 
   const persistTasks = useCallback(
     async (nextTasks: Task[]) => {
@@ -252,7 +268,7 @@ function App() {
         const timestamp = Date.now();
         const { tasks: normalized } = ensureSprintDates(
           nextTasks,
-          sprintWindow
+          sprintSchedule
         );
         await setDoc(boardRef, {
           tasks: normalized,
@@ -270,7 +286,7 @@ function App() {
         setIsSaving(false);
       }
     },
-    [boardRef, sprintWindow, syncReminderSnapshot, userId]
+    [boardRef, sprintSchedule, syncReminderSnapshot, userId]
   );
 
   const outstandingTasks = useMemo(
@@ -280,9 +296,12 @@ function App() {
   const outstandingSprintTasks = useMemo(
     () =>
       tasks.filter(
-        (task) => task.type === "task-sprint" && task.column !== "done"
+        (task) =>
+          task.type === "task-sprint" &&
+          task.column !== "done" &&
+          resolveTaskSprintIndex(task) === activeSprint.index
       ),
-    [tasks]
+    [activeSprint.index, tasks]
   );
 
   const handleAddSubtask = useCallback(
@@ -399,14 +418,14 @@ function App() {
   const completionPercent =
     totalTasks > 0 ? Math.round((columnCounts.done / totalTasks) * 100) : 0;
   const now = new Date();
-  const daysRemaining = daysUntil(sprintWindow.end, now);
-  const overflowDaysRemaining = daysUntil(sprintWindow.overflowEnd, now);
-  const isOverflowActive = now.getTime() > sprintWindow.end.getTime();
+  const daysRemaining = daysUntil(activeSprint.end, now);
+  const overflowDaysRemaining = daysUntil(activeSprint.overflowEnd, now);
+  const isOverflowActive = now.getTime() > activeSprint.end.getTime();
   const sprintRangeLabel = formatDateRange(
-    sprintWindow.start,
-    sprintWindow.end
+    activeSprint.start,
+    activeSprint.end
   );
-  const overflowLabel = longDateFormatter.format(sprintWindow.overflowEnd);
+  const overflowLabel = longDateFormatter.format(activeSprint.overflowEnd);
   const nextReminderDate = useMemo(() => getNextReminderDate(), []);
   const nextReminderLabel = longDateFormatter.format(nextReminderDate);
   const lastReminderLabel = reminderLog.lastNotifiedAt
@@ -528,7 +547,8 @@ function App() {
               {outstandingTasks.length} open tasks across the board
             </p>
             <p className="meta">
-              Due {longDateFormatter.format(sprintWindow.end)}
+              Sprint {activeSprint.index} · Ends{" "}
+              {longDateFormatter.format(activeSprint.end)}
             </p>
           </article>
           <article className="sprint-card reminder">
@@ -538,8 +558,10 @@ function App() {
               Next: {nextReminderLabel} · Last: {lastReminderLabel}
             </p>
             <p className="meta">
-              Snapshot: {reminderSnapshotLabel} · {reminderSnapshotCount} open
-              tasks queued
+              Snapshot: Sprint{" "}
+              {reminderSnapshot?.sprintIndex ?? activeSprint.index} ·{" "}
+              {reminderSnapshotLabel} · {reminderSnapshotCount} open tasks
+              queued
             </p>
             <p className="meta">
               GitHub Actions sends the digest every Friday at 09:00 based on the

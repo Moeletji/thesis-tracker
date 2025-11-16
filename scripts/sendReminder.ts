@@ -4,12 +4,14 @@ import nodemailer from "nodemailer";
 
 import type { Task } from "../src/types";
 import {
+  buildSprintSchedule,
   describeTaskDeadline,
   ensureSprintDates,
   formatDateRange,
+  getActiveSprint,
   getOutstandingTasks,
-  getSprintWindow,
   longDateFormatter,
+  resolveTaskSprintIndex,
 } from "../src/utils/sprint";
 
 const boardId =
@@ -49,11 +51,14 @@ async function main() {
 
   const data = boardSnapshot.data() ?? {};
   const rawTasks = Array.isArray(data.tasks) ? (data.tasks as Task[]) : [];
-  const sprintWindow = getSprintWindow();
-  const { tasks } = ensureSprintDates(rawTasks, sprintWindow);
+  const schedule = buildSprintSchedule();
+  const { tasks } = ensureSprintDates(rawTasks, schedule);
+  const activeSprint = getActiveSprint(schedule);
   const outstanding = getOutstandingTasks(tasks);
   const sprintOutstanding = outstanding.filter(
-    (task) => task.type === "task-sprint"
+    (task) =>
+      task.type === "task-sprint" &&
+      resolveTaskSprintIndex(task) === activeSprint.index
   );
 
   if (sprintOutstanding.length === 0) {
@@ -66,9 +71,10 @@ async function main() {
           email: reminderTo,
           snapshot: {
             generatedAt: Date.now(),
-            sprintStart: sprintWindow.start.toISOString(),
-            sprintEnd: sprintWindow.end.toISOString(),
-            overflowEnd: sprintWindow.overflowEnd.toISOString(),
+            sprintIndex: activeSprint.index,
+            sprintStart: activeSprint.start.toISOString(),
+            sprintEnd: activeSprint.end.toISOString(),
+            overflowEnd: activeSprint.overflowEnd.toISOString(),
             outstandingCount: 0,
             outstandingTasks: [],
           },
@@ -85,15 +91,15 @@ async function main() {
     })
     .join("\n");
 
-  const subject = `Sprint Reminder · ${sprintOutstanding.length} task(s) pending`;
+  const subject = `Sprint ${activeSprint.index} Reminder · ${sprintOutstanding.length} task(s) pending`;
   const body = [
     "Here is your MSc Thesis sprint reminder.",
     "",
     `Sprint window: ${formatDateRange(
-      sprintWindow.start,
-      sprintWindow.end
+      activeSprint.start,
+      activeSprint.end
     )}`,
-    `Overflow ends: ${longDateFormatter.format(sprintWindow.overflowEnd)}`,
+    `Overflow ends: ${longDateFormatter.format(activeSprint.overflowEnd)}`,
     "",
     summaryLines,
     "",
@@ -127,14 +133,15 @@ async function main() {
       {
         email: reminderTo,
         lastNotifiedAt: now,
-        snapshot: {
-          generatedAt: now,
-          sprintStart: sprintWindow.start.toISOString(),
-          sprintEnd: sprintWindow.end.toISOString(),
-          overflowEnd: sprintWindow.overflowEnd.toISOString(),
-          outstandingCount: sprintOutstanding.length,
-          outstandingTasks: sprintOutstanding.map((task) => ({
-            id: task.id,
+          snapshot: {
+            generatedAt: now,
+            sprintIndex: activeSprint.index,
+            sprintStart: activeSprint.start.toISOString(),
+            sprintEnd: activeSprint.end.toISOString(),
+            overflowEnd: activeSprint.overflowEnd.toISOString(),
+            outstandingCount: sprintOutstanding.length,
+            outstandingTasks: sprintOutstanding.map((task) => ({
+              id: task.id,
             title: task.title,
             column: task.column,
             dueDate: task.dueDate,
