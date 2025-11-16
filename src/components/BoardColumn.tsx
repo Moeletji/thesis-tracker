@@ -36,7 +36,7 @@ export function BoardColumn({
   const [subtaskDrafts, setSubtaskDrafts] = useState<Record<string, string>>(
     {}
   );
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
 
   const handleDraftChange = (taskId: string, value: string) => {
     setSubtaskDrafts((prev) => ({ ...prev, [taskId]: value }));
@@ -51,7 +51,7 @@ export function BoardColumn({
 
   return (
     <section
-      className="kanban-column"
+      className={`kanban-column ${isCollapsed ? "collapsed" : ""}`}
       data-column-id={columnId}
       onDragOver={(event) => event.preventDefault()}
       onDrop={(event) => {
@@ -65,13 +65,20 @@ export function BoardColumn({
           onClick={() => setIsCollapsed((prev) => !prev)}
           aria-expanded={!isCollapsed}
         >
-          <div>
-            <p>{title}</p>
-            <span>{count}</span>
-          </div>
-          <span className="collapse-icon">{isCollapsed ? "›" : "‹"}</span>
+          <span className="column-title">{title}</span>
+          <span className="column-meta">
+            <span className="count-pill">{count}</span>
+            <span className="collapse-icon">
+              {isCollapsed ? "Show" : "Hide"}
+            </span>
+          </span>
         </button>
       </header>
+      {isCollapsed && (
+        <div className="column-collapsed-hint">
+          Collapsed · tap to review tasks
+        </div>
+      )}
       <ul className={`kanban-tasks ${isCollapsed ? "collapsed" : ""}`}>
         {tasks.map((task) => {
           const currentIndex = columnOrder.indexOf(task.column);

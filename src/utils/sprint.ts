@@ -38,12 +38,9 @@ export const longDateFormatter = new Intl.DateTimeFormat("en", {
   year: "numeric",
 });
 
-const startOfCurrentSprint = (referenceDate = new Date()) => {
+const anchorSprintStart = (referenceDate = new Date()) => {
   const start = new Date(referenceDate);
   start.setHours(0, 0, 0, 0);
-  const day = start.getDay();
-  const distanceFromMonday = (day + 6) % 7;
-  start.setDate(start.getDate() - distanceFromMonday);
   return start;
 };
 
@@ -51,7 +48,7 @@ export function buildSprintSchedule(
   options: SprintScheduleOptions = {}
 ): SprintScheduleEntry[] {
   const { referenceDate = new Date(), totalSprints = 4 } = options;
-  const firstStart = startOfCurrentSprint(referenceDate);
+  const firstStart = anchorSprintStart(referenceDate);
 
   return Array.from({ length: totalSprints }, (_, idx) => {
     const start = new Date(firstStart.getTime() + idx * WEEK_IN_MS);
