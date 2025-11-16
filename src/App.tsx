@@ -18,6 +18,7 @@ const columnConfig: ColumnConfig[] = [
   { id: "inprogress", title: "In Progress" },
   { id: "done", title: "Done" },
 ];
+const columnOrder: ColumnId[] = ["todo", "inprogress", "done"];
 
 type ConnectionState = "connecting" | "online" | "error";
 
@@ -145,6 +146,35 @@ function App() {
     );
   }, [tasks]);
 
+  const moveTask = useCallback(
+    (taskId: string, direction: "back" | "forward" | ColumnId) => {
+      setTasks((prev) => {
+        const targetTasks = [...prev];
+        const idx = targetTasks.findIndex((task) => task.id === taskId);
+        if (idx === -1) return prev;
+        const currentColumn = targetTasks[idx].column;
+        let nextColumn: ColumnId = currentColumn;
+        if (direction === "back" || direction === "forward") {
+          const currentIndex = columnOrder.indexOf(currentColumn);
+          const offset = direction === "back" ? -1 : 1;
+          const newIndex = currentIndex + offset;
+          if (columnOrder[newIndex]) {
+            nextColumn = columnOrder[newIndex];
+          }
+        } else {
+          nextColumn = direction;
+        }
+        if (nextColumn === currentColumn) {
+          return prev;
+        }
+        targetTasks[idx] = { ...targetTasks[idx], column: nextColumn };
+        void persistTasks(targetTasks);
+        return targetTasks;
+      });
+    },
+    [persistTasks]
+  );
+
   const columnCounts = useMemo(
     () => ({
       todo: groupedTasks.todo.length,
@@ -268,6 +298,7 @@ function App() {
             onDropTask={handleDrop}
             onDragStart={(taskId) => setDraggingTaskId(taskId)}
             onDragEnd={() => setDraggingTaskId(null)}
+            onMoveTask={moveTask}
           />
         ))}
       </main>
