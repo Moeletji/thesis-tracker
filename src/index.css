@@ -272,49 +272,6 @@ body {
   border-radius: 999px;
 }
 
-.kanban-column header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.new-task-card {
-  margin-top: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.85rem;
-  border-radius: 1rem;
-  background: rgba(30, 41, 59, 0.85);
-  border: 1px dashed rgba(148, 163, 184, 0.35);
-}
-
-.new-task-card input,
-.new-task-card textarea {
-  width: 100%;
-  border-radius: 0.75rem;
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  background: rgba(15, 23, 42, 0.35);
-  color: #f8fafc;
-  padding: 0.45rem 0.75rem;
-  font-size: 0.85rem;
-}
-
-.new-task-card textarea {
-  resize: vertical;
-}
-
-.new-task-card button {
-  align-self: flex-end;
-  border: none;
-  border-radius: 999px;
-  padding: 0.35rem 1.1rem;
-  font-weight: 600;
-  background: linear-gradient(90deg, #38bdf8, #6366f1);
-  color: #0f172a;
-  cursor: pointer;
-}
-
 .kanban-tasks {
   list-style: none;
   margin: 1rem 0 0;
@@ -382,6 +339,12 @@ body {
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.task-action.solid {
+  background: linear-gradient(90deg, #22d3ee, #3b82f6);
+  border: none;
+  color: #0f172a;
 }
 
 .task-action:hover:not(:disabled) {
@@ -529,6 +492,66 @@ body {
   height: 100%;
   background: linear-gradient(90deg, #22d3ee, #0ea5e9);
   border-radius: 999px;
+}
+
+.task-inline-subtasks {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.task-inline-subtasks li {
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 0.6rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  padding: 0.35rem 0.6rem;
+}
+
+.task-inline-subtasks label {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+  color: #e2e8f0;
+}
+
+.task-inline-subtasks input[type="checkbox"] {
+  width: 0.9rem;
+  height: 0.9rem;
+  accent-color: #38bdf8;
+}
+
+.task-inline-subtasks span.done {
+  text-decoration: line-through;
+  color: #94a3b8;
+}
+
+.inline-subtask-add {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.inline-subtask-add input {
+  flex: 1;
+  border-radius: 0.6rem;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(2, 6, 23, 0.35);
+  color: #f8fafc;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.8rem;
+}
+
+.inline-subtask-add button {
+  border: none;
+  border-radius: 0.6rem;
+  padding: 0 0.75rem;
+  font-weight: 600;
+  background: rgba(59, 130, 246, 0.9);
+  color: #f8fafc;
+  cursor: pointer;
 }
 
 .modal-subtasks {

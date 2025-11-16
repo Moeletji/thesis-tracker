@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 
 import type { ColumnId, Task } from "../types";
 import { previewText } from "../utils/text";
@@ -16,7 +16,8 @@ interface BoardColumnProps {
   onDragStart: (taskId: string) => void;
   onDragEnd: () => void;
   onMoveTask: (taskId: string, direction: "back" | "forward") => void;
-  onAddTask: (columnId: ColumnId, title: string, desc: string) => void;
+  onAddSubtask: (taskId: string, title: string) => void;
+  onToggleSubtask: (taskId: string, subtaskId: string) => void;
 }
 
 export function BoardColumn({
@@ -29,17 +30,22 @@ export function BoardColumn({
   onDragStart,
   onDragEnd,
   onMoveTask,
-  onAddTask,
+  onAddSubtask,
+  onToggleSubtask,
 }: BoardColumnProps) {
-  const [newTitle, setNewTitle] = useState("");
-  const [newDesc, setNewDesc] = useState("");
+  const [subtaskDrafts, setSubtaskDrafts] = useState<Record<string, string>>(
+    {}
+  );
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!newTitle.trim()) return;
-    onAddTask(columnId, newTitle.trim(), newDesc.trim());
-    setNewTitle("");
-    setNewDesc("");
+  const handleDraftChange = (taskId: string, value: string) => {
+    setSubtaskDrafts((prev) => ({ ...prev, [taskId]: value }));
+  };
+
+  const handleDraftSubmit = (taskId: string) => {
+    const value = subtaskDrafts[taskId]?.trim();
+    if (!value) return;
+    onAddSubtask(taskId, value);
+    setSubtaskDrafts((prev) => ({ ...prev, [taskId]: "" }));
   };
 
   return (
@@ -58,21 +64,6 @@ export function BoardColumn({
           <span>{count}</span>
         </h2>
       </header>
-      <form className="new-task-card" onSubmit={handleSubmit}>
-        <input
-          value={newTitle}
-          onChange={(event) => setNewTitle(event.target.value)}
-          placeholder="Quick add task..."
-          aria-label={`Add task to ${title}`}
-        />
-        <textarea
-          value={newDesc}
-          onChange={(event) => setNewDesc(event.target.value)}
-          placeholder="Optional description"
-          rows={2}
-        />
-        <button type="submit">Add Task</button>
-      </form>
       <ul className="kanban-tasks">
         {tasks.map((task) => {
           const currentIndex = columnOrder.indexOf(task.column);
@@ -81,6 +72,9 @@ export function BoardColumn({
           const deadlineDetails = describeTaskDeadline(task);
           const subtasks = task.subtasks ?? [];
           const completedSubtasks = subtasks.filter((sub) => sub.done).length;
+          const allSubtasksComplete =
+            subtasks.length > 0 && completedSubtasks === subtasks.length;
+          const subtaskDraft = subtaskDrafts[task.id] ?? "";
 
           return (
             <li
@@ -136,6 +130,45 @@ export function BoardColumn({
                   </span>
                 </div>
               )}
+              <ul
+                className="task-inline-subtasks"
+                onClick={(event) => event.stopPropagation()}
+              >
+                {subtasks.map((subtask) => (
+                  <li key={subtask.id}>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={subtask.done}
+                        onChange={() => onToggleSubtask(task.id, subtask.id)}
+                      />
+                      <span className={subtask.done ? "done" : ""}>
+                        {subtask.title}
+                      </span>
+                    </label>
+                  </li>
+                ))}
+                <li>
+                  <form
+                    className="inline-subtask-add"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      handleDraftSubmit(task.id);
+                    }}
+                  >
+                    <input
+                      value={subtaskDraft}
+                      onChange={(event) =>
+                        handleDraftChange(task.id, event.target.value)
+                      }
+                      placeholder="Add subtask..."
+                    />
+                    <button type="submit" disabled={!subtaskDraft.trim()}>
+                      Add
+                    </button>
+                  </form>
+                </li>
+              </ul>
               <div className="task-actions">
                 <button
                   className="task-action"
@@ -156,6 +189,19 @@ export function BoardColumn({
                   disabled={!canMoveForward}
                 >
                   Forward →
+                </button>
+                <button
+                  className="task-action solid"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (allSubtasksComplete && task.column !== "done") {
+                      onMoveTask(task.id, "forward");
+                    }
+                  }}
+                  disabled={!allSubtasksComplete || task.column === "done"}
+                  title="Auto-progress to Done when every subtask is complete."
+                >
+                  Mark Done
                 </button>
               </div>
             </li>

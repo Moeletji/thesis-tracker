@@ -285,28 +285,6 @@ function App() {
     [tasks]
   );
 
-  const handleAddTask = useCallback(
-    (columnId: ColumnId, title: string, desc: string) => {
-      setTasks((prev) => {
-        const newTask: Task = {
-          id: generateId(),
-          title,
-          desc: desc || "Newly captured task",
-          type: "task-micro",
-          tags: [],
-          column: columnId,
-          dueDate: sprintWindow.end.toISOString(),
-          overflowDate: sprintWindow.overflowEnd.toISOString(),
-          subtasks: [],
-        };
-        const next = [...prev, newTask];
-        void persistTasks(next);
-        return next;
-      });
-    },
-    [persistTasks, sprintWindow.end, sprintWindow.overflowEnd]
-  );
-
   const handleAddSubtask = useCallback(
     (taskId: string, title: string) => {
       setTasks((prev) => {
@@ -333,12 +311,19 @@ function App() {
       setTasks((prev) => {
         const next = prev.map((task) => {
           if (task.id !== taskId) return task;
-          const subtasks = (task.subtasks ?? []).map((subtask) =>
+          const nextSubtasks = (task.subtasks ?? []).map((subtask) =>
             subtask.id === subtaskId
               ? { ...subtask, done: !subtask.done }
               : subtask
           );
-          return { ...task, subtasks };
+          const allComplete =
+            nextSubtasks.length > 0 &&
+            nextSubtasks.every((subtask) => subtask.done);
+          const nextColumn =
+            allComplete && task.column === "inprogress"
+              ? "done"
+              : task.column;
+          return { ...task, subtasks: nextSubtasks, column: nextColumn };
         });
         void persistTasks(next);
         return next;
@@ -594,7 +579,8 @@ function App() {
             onDragStart={(taskId) => setDraggingTaskId(taskId)}
             onDragEnd={() => setDraggingTaskId(null)}
             onMoveTask={moveTask}
-            onAddTask={handleAddTask}
+            onAddSubtask={handleAddSubtask}
+            onToggleSubtask={handleToggleSubtask}
           />
         ))}
       </main>
