@@ -19,6 +19,8 @@ const columnConfig: ColumnConfig[] = [
   { id: "done", title: "Done" },
 ];
 
+type ConnectionState = "connecting" | "online" | "error";
+
 function App() {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
@@ -28,6 +30,9 @@ function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
+  const [connectionState, setConnectionState] =
+    useState<ConnectionState>("connecting");
 
   const boardRef = useMemo(
     () => doc(db, "boards", resolvedBoardId),
@@ -39,7 +44,8 @@ function App() {
 
     const bootstrap = async () => {
       try {
-        setLoadingMessage("Connecting to your board…");
+        setConnectionState("connecting");
+        setLoadingMessage("Connecting to your board...");
         const user =
           auth.currentUser ?? (await signInAnonymously(auth)).user;
         setUserId(user.uid);
@@ -55,19 +61,25 @@ function App() {
                 await setDoc(boardRef, { tasks: initialTasks });
                 setTasks(initialTasks);
               }
+              if (typeof data.updatedAt === "number") {
+                setLastUpdated(data.updatedAt);
+              }
             } else {
               await setDoc(boardRef, { tasks: initialTasks });
               setTasks(initialTasks);
+              setLastUpdated(Date.now());
             }
 
             setIsLoading(false);
             setError(null);
+            setConnectionState("online");
           },
           (snapshotError) => {
             console.error("Firestore snapshot error", snapshotError);
             setError("Error connecting to board. Please refresh.");
             setLoadingMessage("Error connecting to board.");
             setIsLoading(false);
+            setConnectionState("error");
           }
         );
       } catch (authError) {
@@ -77,6 +89,7 @@ function App() {
         );
         setLoadingMessage("Authentication failed.");
         setIsLoading(false);
+        setConnectionState("error");
       }
     };
 
@@ -88,11 +101,13 @@ function App() {
     async (nextTasks: Task[]) => {
       setIsSaving(true);
       try {
+        const timestamp = Date.now();
         await setDoc(boardRef, {
           tasks: nextTasks,
           updatedBy: userId ?? "anonymous",
-          updatedAt: Date.now(),
+          updatedAt: timestamp,
         });
+        setLastUpdated(timestamp);
       } catch (saveError) {
         console.error("Failed to write board", saveError);
         setError(
@@ -130,6 +145,55 @@ function App() {
     );
   }, [tasks]);
 
+  const columnCounts = useMemo(
+    () => ({
+      todo: groupedTasks.todo.length,
+      inprogress: groupedTasks.inprogress.length,
+      done: groupedTasks.done.length,
+    }),
+    [groupedTasks]
+  );
+
+  const totalTasks = tasks.length;
+  const completionPercent =
+    totalTasks > 0 ? Math.round((columnCounts.done / totalTasks) * 100) : 0;
+  const lastUpdatedLabel = lastUpdated
+    ? new Intl.DateTimeFormat("en", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(lastUpdated)
+    : "Awaiting first sync";
+
+  const summaryCards = [
+    {
+      label: "Backlog",
+      value: columnCounts.todo,
+      hint: "Awaiting kickoff",
+    },
+    {
+      label: "In Flight",
+      value: columnCounts.inprogress,
+      hint: "Actively being executed",
+    },
+    {
+      label: "Done",
+      value: columnCounts.done,
+      hint: "Validated steps",
+    },
+    {
+      label: "Velocity",
+      value: `${completionPercent}%`,
+      hint: "Board completion",
+    },
+  ];
+
+  const connectionLabel =
+    connectionState === "online"
+      ? "Live"
+      : connectionState === "error"
+      ? "Offline"
+      : "Connecting";
+
   return (
     <div className="app-shell">
       <LoadingOverlay
@@ -138,20 +202,57 @@ function App() {
       />
       <TaskModal task={activeTask} onClose={() => setActiveTask(null)} />
 
-      <header>
-        <div className="inner">
-          <h1>MSc Thesis Sprint Tracker</h1>
-          <p>Click any task to see details. Drag to move. Synced securely.</p>
-          <div className="status-bar" aria-live="polite">
-            <span className="status-pill">
-              Board ID: <strong>{resolvedBoardId}</strong>
+      <section className="board-hero">
+        <div className="board-header">
+          <div>
+            <p className="eyebrow">MSc Thesis Program</p>
+            <h1>Thesis Sprint Command Center</h1>
+            <p className="subtitle">
+              Operate with confidence. Each move syncs across every device in
+              real time.
+            </p>
+          </div>
+          <div className="board-badges" aria-live="polite">
+            <span className={`connection-pill ${connectionState}`}>
+              <span className="dot" /> {connectionLabel}
             </span>
-            <span className={`status-pill ${isSaving ? "saving" : ""}`}>
-              {isSaving ? "Saving changes…" : "All changes synced"}
+            <span className={`connection-pill ${isSaving ? "saving" : ""}`}>
+              {isSaving ? "Syncing changes…" : "All changes saved"}
             </span>
           </div>
         </div>
-      </header>
+
+        <div className="board-meta">
+          <div>
+            <p className="label">Board ID</p>
+            <p className="value">{resolvedBoardId}</p>
+          </div>
+          <div>
+            <p className="label">Last Sync</p>
+            <p className="value">{lastUpdatedLabel}</p>
+          </div>
+          <div className="progress-tile">
+            <p className="label">Completion</p>
+            <div className="progress-meter">
+              <div
+                className="progress-value"
+                style={{ width: `${completionPercent}%` }}
+              />
+            </div>
+            <p className="value">{completionPercent}%</p>
+          </div>
+        </div>
+
+        <div className="stat-grid">
+          {summaryCards.map((stat) => (
+            <article key={stat.label} className="stat-card">
+              <p className="stat-label">{stat.label}</p>
+              <p className="stat-value">{stat.value}</p>
+              <p className="stat-hint">{stat.hint}</p>
+            </article>
+          ))}
+        </div>
+      </section>
 
       {error && !isLoading && <div className="banner error">{error}</div>}
 
