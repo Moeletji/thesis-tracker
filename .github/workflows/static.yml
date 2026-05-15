@@ -65,30 +65,30 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-  sprint-reminder:
-    if: github.event_name == 'schedule'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+  # sprint-reminder:
+  #   if: github.event_name == 'schedule'
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
+  #     - name: Setup Node
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: 20
+  #         cache: npm
 
-      - name: Install dependencies
-        run: npm install
+  #     - name: Install dependencies
+  #       run: npm install
 
-      - name: Send sprint reminder
-        env:
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          FIREBASE_BOARD_ID: ${{ secrets.FIREBASE_BOARD_ID }}
-          REMINDER_TO_EMAIL: ${{ secrets.REMINDER_TO_EMAIL }}
-          REMINDER_FROM_EMAIL: ${{ secrets.REMINDER_FROM_EMAIL }}
-          SMTP_HOST: ${{ secrets.SMTP_HOST }}
-          SMTP_PORT: ${{ secrets.SMTP_PORT }}
-          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
-          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-        run: npm run reminder:run
+  #     - name: Send sprint reminder
+  #       env:
+  #         FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+  #         FIREBASE_BOARD_ID: ${{ secrets.FIREBASE_BOARD_ID }}
+  #         REMINDER_TO_EMAIL: ${{ secrets.REMINDER_TO_EMAIL }}
+  #         REMINDER_FROM_EMAIL: ${{ secrets.REMINDER_FROM_EMAIL }}
+  #         SMTP_HOST: ${{ secrets.SMTP_HOST }}
+  #         SMTP_PORT: ${{ secrets.SMTP_PORT }}
+  #         SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+  #         SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+  #       run: npm run reminder:run
